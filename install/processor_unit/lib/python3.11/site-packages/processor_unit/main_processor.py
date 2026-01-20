@@ -6,6 +6,7 @@ from std_msgs.msg import Float32
 class Joint1Processor(Node):
     def __init__(self):
         super().__init__('joint1_processor_node')
+        #มุมที่เปลี่ยนแปลงจะถูกส่งไปที่ Driver ของ Joint 1
 
         # Publisher: ส่งคำสั่งมุมไปที่ Driver
         self.target_pub = self.create_publisher(Float32, 'joint1/set_target_angle', 10)

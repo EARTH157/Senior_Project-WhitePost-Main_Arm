@@ -11,7 +11,7 @@ class LimitSwitchNode(Node):
             'Limit_2': 23,
             'Limit_3': 24,
             'Limit_4': 25,
-            'Limit_5': 16
+            'Limit_5': 16,
         }
         
         self.switches = {}
