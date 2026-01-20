@@ -42,6 +42,8 @@ i2cdetect -y 1
 
 source venv/bin/activate
 
+# nothing at all
+
 ros2 topic pub /servo/set_angle std_msgs/Float32MultiArray "data: [14, 45.0]" -1
 
 python step1_rrtstar_drive_650610830.py --tracker stanley --rejoin-dist 0.25 --lookahead 0.22 --vmax 0.12 --path-mode mesh3d 
