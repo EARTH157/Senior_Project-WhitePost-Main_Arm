@@ -16,6 +16,8 @@ jobs -l
 
 kill -9 
 
+# Run Motor
+
 ros2 run motor_control stepmotor1
 
 ros2 run motor_control servo_driver_i2c
