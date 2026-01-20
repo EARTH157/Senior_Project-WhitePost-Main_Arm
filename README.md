@@ -10,6 +10,8 @@ ssh raspi-zero-two-w-earth@172.20.10.3
 
 Password: spacebar and enter
 
+# Kill all Process
+
 jobs -l
 
 kill -9 
