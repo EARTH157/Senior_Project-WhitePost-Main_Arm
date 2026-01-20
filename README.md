@@ -24,6 +24,8 @@ ros2 run motor_control servo_driver_i2c
 
 ros2 run motor_control joint1_node
 
+# Run step and angle
+
 ros2 topic pub -1 /stepper_joint1_cmd std_msgs/Int32 "{data: 500}"
 
 ros2 topic pub --once /joint1/calibrate std_msgs/msg/Bool "{data: true}"
@@ -39,6 +41,8 @@ i2cset -y 1 0x70 0x01
 i2cdetect -y 1
 
 source venv/bin/activate
+
+# nothing at all
 
 ros2 topic pub /servo/set_angle std_msgs/Float32MultiArray "data: [14, 45.0]" -1
 
