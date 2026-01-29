@@ -328,9 +328,9 @@ class Joint3Driver(Node):
         # 5. Set Zero
         val = self.read_as5600()
         if val: 
-            self.zero_offset = val
+            self.zero_offset = val+8.0
             self.is_homed = True
-            self.current_target = 0.0 
+            self.current_target = 8.0 
             self.get_logger().info(f"✅ Homing Done. New Offset: {self.zero_offset:.2f}")
         else:
             self.get_logger().error("❌ Homing Failed: Sensor Error")
