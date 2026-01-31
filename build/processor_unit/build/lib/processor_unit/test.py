@@ -57,7 +57,10 @@ class IKSolverNode(Node):
 
         # --- 2. Joint 1 (Base Rotation) ---
         # atan2 ปกติให้ค่า -PI ถึง +PI
-        theta1_raw = math.atan2(y-190.0, x)
+        if y >= 0:
+            theta1_raw = math.atan2(y-190.0, x)
+        else:
+            theta1_raw = math.atan2(y+190.0, x)
         # แปลงเป็น 0 ถึง 2PI (เพื่อให้เข้ากับ Range 0-270 ตามสเปค)
         theta1 = normalize_angle_positive(theta1_raw)
         #theta1 = theta1_raw
@@ -106,25 +109,40 @@ class IKSolverNode(Node):
         # สมการ: theta1 + theta5 = 90 deg (เพื่อให้หน้าแปลนขนานแกน Y)
         
         theta1_for_5 = theta1
-        if x >= 0:
-            # เงื่อนไข: ถ้า x เป็นบวก
-            
-            # เช็คว่ามุมใกล้เคียง 90 องศาหรือไม่ (ใช้ abs < 0.01 แทน == เพื่อความชัวร์)
-            if abs(math.degrees(theta1_for_5) - 90.0) < 0.01:
-                theta1_for_5 = 0.0
-            
-            # สมการที่คุณให้มา
-            theta5_raw_calc = math.pi - ((math.pi / 2) - theta1_for_5)
-            theta5_servo = theta5_raw_calc + theta1_for_5
-            
+        if y >= 0:
+            if x >= 0:
+                # เงื่อนไข: ถ้า x เป็นบวก
+                
+                # เช็คว่ามุมใกล้เคียง 90 องศาหรือไม่ (ใช้ abs < 0.01 แทน == เพื่อความชัวร์)
+                if abs(math.degrees(theta1_for_5) - 90.0) < 0.01:
+                    theta1_for_5 = 0.0
+                
+                # สมการที่คุณให้มา
+                theta5_raw = (math.pi / 2) - theta1_for_5
+                theta5_phi = math.pi - (theta5_raw + (2*theta1_for_5))
+                theta5_servo = theta5_raw + theta1_for_5 + theta5_phi
+                # แปลงให้เป็นบวก
+                theta5 = normalize_angle_positive(theta5_servo)
+                if not (0 <= math.degrees(theta5) <= 180.1): # เผื่อ Error นิดหน่อย (tolerance)
+                    raise ValueError(f"Joint 5 Limit Exceeded: {math.degrees(theta5):.2f} deg (Max 180)")
+                
+            else:
+                # เงื่อนไข: ถ้า x ติดลบ
+                theta5_servo = math.pi - theta1_for_5
+                # แปลงให้เป็นบวก
+                theta5 = normalize_angle_positive(theta5_servo)
+                if not (0 <= math.degrees(theta5) <= 180.1): # เผื่อ Error นิดหน่อย (tolerance)
+                    raise ValueError(f"Joint 5 Limit Exceeded: {math.degrees(theta5):.2f} deg (Max 180)")
         else:
-            # เงื่อนไข: ถ้า x ติดลบ
-            theta5_servo = math.pi - theta1_for_5
-            
-        # แปลงให้เป็นบวก
-        theta5 = normalize_angle_positive(theta5_servo)
-        if not (0 <= math.degrees(theta5) <= 180.1): # เผื่อ Error นิดหน่อย (tolerance)
-            raise ValueError(f"Joint 5 Limit Exceeded: {math.degrees(theta5):.2f} deg (Max 180)")
+            # เงื่อนไข: ถ้า y ติดลบ
+            theta5_raw = (math.pi / 2) - theta1_for_5
+            theta5_phi = math.pi - (theta5_raw + (2*theta1_for_5))
+            theta5_servo = math.pi + (theta5_raw + theta1_for_5 + theta5_phi)
+            #theta5_servo = ((1.5 * math.pi) + theta1_for_5) + (math.pi / 2)
+            # แปลงให้เป็นบวก
+            theta5 = normalize_angle_positive(theta5_servo)
+            if not (0 <= math.degrees(theta5) <= 180.1): # เผื่อ Error นิดหน่อย (tolerance)
+                raise ValueError(f"Joint 5 Limit Exceeded: {math.degrees(theta5):.2f} deg (Max 180)")
         
         angle_joint1 = math.degrees(theta1)
         angle_joint2 = math.degrees(theta2)

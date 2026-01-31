@@ -1,0 +1,27 @@
+[9.477s] Invoking command in '/home/raspi-earth/project_ws/src/encoder_unit': PYTHONPATH=/home/raspi-earth/project_ws/build/encoder_unit/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/raspi-earth/project_ws/install/encoder_unit/lib/python3.11/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/encoder_unit build --build-base /home/raspi-earth/project_ws/build/encoder_unit/build install --record /home/raspi-earth/project_ws/build/encoder_unit/install.log --single-version-externally-managed install_data
+[11.663s] running egg_info
+[11.718s] writing ../../build/encoder_unit/encoder_unit.egg-info/PKG-INFO
+[11.718s] writing dependency_links to ../../build/encoder_unit/encoder_unit.egg-info/dependency_links.txt
+[11.718s] writing entry points to ../../build/encoder_unit/encoder_unit.egg-info/entry_points.txt
+[11.726s] writing requirements to ../../build/encoder_unit/encoder_unit.egg-info/requires.txt
+[11.726s] writing top-level names to ../../build/encoder_unit/encoder_unit.egg-info/top_level.txt
+[11.837s] reading manifest file '../../build/encoder_unit/encoder_unit.egg-info/SOURCES.txt'
+[11.837s] adding license file 'LICENSE'
+[11.837s] writing manifest file '../../build/encoder_unit/encoder_unit.egg-info/SOURCES.txt'
+[11.837s] running build
+[11.837s] running build_py
+[11.846s] running install
+[11.863s] running install_lib
+[11.962s] running install_data
+[11.966s] running install_egg_info
+[12.081s] removing '/home/raspi-earth/project_ws/install/encoder_unit/lib/python3.11/site-packages/encoder_unit-0.0.0-py3.11.egg-info' (and everything under it)
+[12.085s] Copying ../../build/encoder_unit/encoder_unit.egg-info to /home/raspi-earth/project_ws/install/encoder_unit/lib/python3.11/site-packages/encoder_unit-0.0.0-py3.11.egg-info
+[12.085s] running install_scripts
+[12.347s] Installing as5600_1 script to /home/raspi-earth/project_ws/install/encoder_unit/lib/encoder_unit
+[12.348s] Installing as5600_2 script to /home/raspi-earth/project_ws/install/encoder_unit/lib/encoder_unit
+[12.349s] Installing as5600_3 script to /home/raspi-earth/project_ws/install/encoder_unit/lib/encoder_unit
+[12.349s] Installing as5600_4 script to /home/raspi-earth/project_ws/install/encoder_unit/lib/encoder_unit
+[12.352s] Installing as5600_5 script to /home/raspi-earth/project_ws/install/encoder_unit/lib/encoder_unit
+[12.353s] Installing limit script to /home/raspi-earth/project_ws/install/encoder_unit/lib/encoder_unit
+[12.353s] writing list of installed files to '/home/raspi-earth/project_ws/build/encoder_unit/install.log'
+[12.570s] Invoked command in '/home/raspi-earth/project_ws/src/encoder_unit' returned '0': PYTHONPATH=/home/raspi-earth/project_ws/build/encoder_unit/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/raspi-earth/project_ws/install/encoder_unit/lib/python3.11/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/encoder_unit build --build-base /home/raspi-earth/project_ws/build/encoder_unit/build install --record /home/raspi-earth/project_ws/build/encoder_unit/install.log --single-version-externally-managed install_data
