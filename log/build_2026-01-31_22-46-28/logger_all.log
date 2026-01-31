@@ -1,0 +1,251 @@
+[0.371s] DEBUG:colcon:Command line arguments: ['/usr/bin/colcon', 'build']
+[0.371s] DEBUG:colcon:Parsed command line arguments: Namespace(log_base=None, log_level=None, verb_name='build', build_base='build', install_base='install', merge_install=False, symlink_install=False, test_result_base=None, continue_on_error=False, executor='parallel', parallel_workers=4, event_handlers=None, ignore_user_meta=False, metas=['./colcon.meta'], base_paths=['.'], packages_ignore=None, packages_ignore_regex=None, paths=None, packages_up_to=None, packages_up_to_regex=None, packages_above=None, packages_above_and_dependencies=None, packages_above_depth=None, packages_select_by_dep=None, packages_skip_by_dep=None, packages_skip_up_to=None, packages_select_build_failed=False, packages_skip_build_finished=False, packages_select_test_failures=False, packages_skip_test_passed=False, packages_select=None, packages_skip=None, packages_select_regex=None, packages_skip_regex=None, packages_start=None, packages_end=None, cmake_args=None, cmake_target=None, cmake_target_skip_unavailable=False, cmake_clean_cache=False, cmake_clean_first=False, cmake_force_configure=False, ament_cmake_args=None, catkin_cmake_args=None, catkin_skip_building_tests=False, verb_parser=<colcon_defaults.argument_parser.defaults.DefaultArgumentsDecorator object at 0x7fff2907ea90>, verb_extension=<colcon_core.verb.build.BuildVerb object at 0x7fff28ff8490>, main=<bound method BuildVerb.main of <colcon_core.verb.build.BuildVerb object at 0x7fff28ff8490>>)
+[0.936s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) check parameters
+[0.936s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) check parameters
+[0.936s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) check parameters
+[0.936s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) check parameters
+[0.936s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) discover
+[0.936s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) discover
+[0.936s] INFO:colcon.colcon_core.package_discovery:Crawling recursively for packages in '/home/raspi-earth/project_ws'
+[0.936s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ignore', 'ignore_ament_install']
+[0.937s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore'
+[0.937s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore_ament_install'
+[0.937s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_pkg']
+[0.937s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_pkg'
+[0.937s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_meta']
+[0.937s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_meta'
+[0.937s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ros']
+[0.937s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ros'
+[0.994s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['cmake', 'python']
+[0.994s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'cmake'
+[0.994s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python'
+[0.994s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['python_setup_py']
+[0.994s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python_setup_py'
+[0.994s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extensions ['ignore', 'ignore_ament_install']
+[0.994s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extension 'ignore'
+[0.994s] Level 1:colcon.colcon_core.package_identification:_identify(build) ignored
+[0.995s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extensions ['ignore', 'ignore_ament_install']
+[0.995s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extension 'ignore'
+[0.995s] Level 1:colcon.colcon_core.package_identification:_identify(install) ignored
+[0.995s] Level 1:colcon.colcon_core.package_identification:_identify(log) by extensions ['ignore', 'ignore_ament_install']
+[0.996s] Level 1:colcon.colcon_core.package_identification:_identify(log) by extension 'ignore'
+[0.996s] Level 1:colcon.colcon_core.package_identification:_identify(log) ignored
+[0.996s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['ignore', 'ignore_ament_install']
+[0.996s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'ignore'
+[0.996s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'ignore_ament_install'
+[0.996s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['colcon_pkg']
+[0.996s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'colcon_pkg'
+[0.996s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['colcon_meta']
+[0.996s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'colcon_meta'
+[0.997s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['ros']
+[0.997s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'ros'
+[0.997s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['cmake', 'python']
+[0.997s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'cmake'
+[0.997s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'python'
+[0.997s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['python_setup_py']
+[0.997s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'python_setup_py'
+[0.997s] Level 1:colcon.colcon_core.package_identification:_identify(src/encoder_unit) by extensions ['ignore', 'ignore_ament_install']
+[0.997s] Level 1:colcon.colcon_core.package_identification:_identify(src/encoder_unit) by extension 'ignore'
+[0.998s] Level 1:colcon.colcon_core.package_identification:_identify(src/encoder_unit) by extension 'ignore_ament_install'
+[0.998s] Level 1:colcon.colcon_core.package_identification:_identify(src/encoder_unit) by extensions ['colcon_pkg']
+[0.998s] Level 1:colcon.colcon_core.package_identification:_identify(src/encoder_unit) by extension 'colcon_pkg'
+[0.998s] Level 1:colcon.colcon_core.package_identification:_identify(src/encoder_unit) by extensions ['colcon_meta']
+[0.998s] Level 1:colcon.colcon_core.package_identification:_identify(src/encoder_unit) by extension 'colcon_meta'
+[0.998s] Level 1:colcon.colcon_core.package_identification:_identify(src/encoder_unit) by extensions ['ros']
+[0.998s] Level 1:colcon.colcon_core.package_identification:_identify(src/encoder_unit) by extension 'ros'
+[1.005s] DEBUG:colcon.colcon_core.package_identification:Package 'src/encoder_unit' with type 'ros.ament_python' and name 'encoder_unit'
+[1.005s] Level 1:colcon.colcon_core.package_identification:_identify(src/launch_project) by extensions ['ignore', 'ignore_ament_install']
+[1.005s] Level 1:colcon.colcon_core.package_identification:_identify(src/launch_project) by extension 'ignore'
+[1.005s] Level 1:colcon.colcon_core.package_identification:_identify(src/launch_project) by extension 'ignore_ament_install'
+[1.005s] Level 1:colcon.colcon_core.package_identification:_identify(src/launch_project) by extensions ['colcon_pkg']
+[1.005s] Level 1:colcon.colcon_core.package_identification:_identify(src/launch_project) by extension 'colcon_pkg'
+[1.005s] Level 1:colcon.colcon_core.package_identification:_identify(src/launch_project) by extensions ['colcon_meta']
+[1.005s] Level 1:colcon.colcon_core.package_identification:_identify(src/launch_project) by extension 'colcon_meta'
+[1.005s] Level 1:colcon.colcon_core.package_identification:_identify(src/launch_project) by extensions ['ros']
+[1.005s] Level 1:colcon.colcon_core.package_identification:_identify(src/launch_project) by extension 'ros'
+[1.006s] DEBUG:colcon.colcon_core.package_identification:Package 'src/launch_project' with type 'ros.ament_python' and name 'launch_project'
+[1.006s] Level 1:colcon.colcon_core.package_identification:_identify(src/motor_control) by extensions ['ignore', 'ignore_ament_install']
+[1.006s] Level 1:colcon.colcon_core.package_identification:_identify(src/motor_control) by extension 'ignore'
+[1.006s] Level 1:colcon.colcon_core.package_identification:_identify(src/motor_control) by extension 'ignore_ament_install'
+[1.006s] Level 1:colcon.colcon_core.package_identification:_identify(src/motor_control) by extensions ['colcon_pkg']
+[1.006s] Level 1:colcon.colcon_core.package_identification:_identify(src/motor_control) by extension 'colcon_pkg'
+[1.006s] Level 1:colcon.colcon_core.package_identification:_identify(src/motor_control) by extensions ['colcon_meta']
+[1.006s] Level 1:colcon.colcon_core.package_identification:_identify(src/motor_control) by extension 'colcon_meta'
+[1.006s] Level 1:colcon.colcon_core.package_identification:_identify(src/motor_control) by extensions ['ros']
+[1.006s] Level 1:colcon.colcon_core.package_identification:_identify(src/motor_control) by extension 'ros'
+[1.007s] DEBUG:colcon.colcon_core.package_identification:Package 'src/motor_control' with type 'ros.ament_python' and name 'motor_control'
+[1.007s] Level 1:colcon.colcon_core.package_identification:_identify(src/processor_unit) by extensions ['ignore', 'ignore_ament_install']
+[1.007s] Level 1:colcon.colcon_core.package_identification:_identify(src/processor_unit) by extension 'ignore'
+[1.007s] Level 1:colcon.colcon_core.package_identification:_identify(src/processor_unit) by extension 'ignore_ament_install'
+[1.007s] Level 1:colcon.colcon_core.package_identification:_identify(src/processor_unit) by extensions ['colcon_pkg']
+[1.007s] Level 1:colcon.colcon_core.package_identification:_identify(src/processor_unit) by extension 'colcon_pkg'
+[1.007s] Level 1:colcon.colcon_core.package_identification:_identify(src/processor_unit) by extensions ['colcon_meta']
+[1.007s] Level 1:colcon.colcon_core.package_identification:_identify(src/processor_unit) by extension 'colcon_meta'
+[1.007s] Level 1:colcon.colcon_core.package_identification:_identify(src/processor_unit) by extensions ['ros']
+[1.007s] Level 1:colcon.colcon_core.package_identification:_identify(src/processor_unit) by extension 'ros'
+[1.008s] DEBUG:colcon.colcon_core.package_identification:Package 'src/processor_unit' with type 'ros.ament_python' and name 'processor_unit'
+[1.008s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) using defaults
+[1.008s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) discover
+[1.008s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) using defaults
+[1.008s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) discover
+[1.008s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) using defaults
+[1.119s] Level 5:colcon.colcon_core.verb:set package 'encoder_unit' build argument 'cmake_args' from command line to 'None'
+[1.119s] Level 5:colcon.colcon_core.verb:set package 'encoder_unit' build argument 'cmake_target' from command line to 'None'
+[1.119s] Level 5:colcon.colcon_core.verb:set package 'encoder_unit' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[1.119s] Level 5:colcon.colcon_core.verb:set package 'encoder_unit' build argument 'cmake_clean_cache' from command line to 'False'
+[1.119s] Level 5:colcon.colcon_core.verb:set package 'encoder_unit' build argument 'cmake_clean_first' from command line to 'False'
+[1.119s] Level 5:colcon.colcon_core.verb:set package 'encoder_unit' build argument 'cmake_force_configure' from command line to 'False'
+[1.119s] Level 5:colcon.colcon_core.verb:set package 'encoder_unit' build argument 'ament_cmake_args' from command line to 'None'
+[1.119s] Level 5:colcon.colcon_core.verb:set package 'encoder_unit' build argument 'catkin_cmake_args' from command line to 'None'
+[1.119s] Level 5:colcon.colcon_core.verb:set package 'encoder_unit' build argument 'catkin_skip_building_tests' from command line to 'False'
+[1.119s] DEBUG:colcon.colcon_core.verb:Building package 'encoder_unit' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/raspi-earth/project_ws/build/encoder_unit', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/raspi-earth/project_ws/install/encoder_unit', 'merge_install': False, 'path': '/home/raspi-earth/project_ws/src/encoder_unit', 'symlink_install': False, 'test_result_base': None}
+[1.120s] Level 5:colcon.colcon_core.verb:set package 'launch_project' build argument 'cmake_args' from command line to 'None'
+[1.120s] Level 5:colcon.colcon_core.verb:set package 'launch_project' build argument 'cmake_target' from command line to 'None'
+[1.120s] Level 5:colcon.colcon_core.verb:set package 'launch_project' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[1.120s] Level 5:colcon.colcon_core.verb:set package 'launch_project' build argument 'cmake_clean_cache' from command line to 'False'
+[1.120s] Level 5:colcon.colcon_core.verb:set package 'launch_project' build argument 'cmake_clean_first' from command line to 'False'
+[1.120s] Level 5:colcon.colcon_core.verb:set package 'launch_project' build argument 'cmake_force_configure' from command line to 'False'
+[1.120s] Level 5:colcon.colcon_core.verb:set package 'launch_project' build argument 'ament_cmake_args' from command line to 'None'
+[1.120s] Level 5:colcon.colcon_core.verb:set package 'launch_project' build argument 'catkin_cmake_args' from command line to 'None'
+[1.120s] Level 5:colcon.colcon_core.verb:set package 'launch_project' build argument 'catkin_skip_building_tests' from command line to 'False'
+[1.120s] DEBUG:colcon.colcon_core.verb:Building package 'launch_project' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/raspi-earth/project_ws/build/launch_project', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/raspi-earth/project_ws/install/launch_project', 'merge_install': False, 'path': '/home/raspi-earth/project_ws/src/launch_project', 'symlink_install': False, 'test_result_base': None}
+[1.120s] Level 5:colcon.colcon_core.verb:set package 'motor_control' build argument 'cmake_args' from command line to 'None'
+[1.120s] Level 5:colcon.colcon_core.verb:set package 'motor_control' build argument 'cmake_target' from command line to 'None'
+[1.120s] Level 5:colcon.colcon_core.verb:set package 'motor_control' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[1.120s] Level 5:colcon.colcon_core.verb:set package 'motor_control' build argument 'cmake_clean_cache' from command line to 'False'
+[1.120s] Level 5:colcon.colcon_core.verb:set package 'motor_control' build argument 'cmake_clean_first' from command line to 'False'
+[1.120s] Level 5:colcon.colcon_core.verb:set package 'motor_control' build argument 'cmake_force_configure' from command line to 'False'
+[1.120s] Level 5:colcon.colcon_core.verb:set package 'motor_control' build argument 'ament_cmake_args' from command line to 'None'
+[1.120s] Level 5:colcon.colcon_core.verb:set package 'motor_control' build argument 'catkin_cmake_args' from command line to 'None'
+[1.120s] Level 5:colcon.colcon_core.verb:set package 'motor_control' build argument 'catkin_skip_building_tests' from command line to 'False'
+[1.120s] DEBUG:colcon.colcon_core.verb:Building package 'motor_control' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/raspi-earth/project_ws/build/motor_control', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/raspi-earth/project_ws/install/motor_control', 'merge_install': False, 'path': '/home/raspi-earth/project_ws/src/motor_control', 'symlink_install': False, 'test_result_base': None}
+[1.121s] Level 5:colcon.colcon_core.verb:set package 'processor_unit' build argument 'cmake_args' from command line to 'None'
+[1.121s] Level 5:colcon.colcon_core.verb:set package 'processor_unit' build argument 'cmake_target' from command line to 'None'
+[1.121s] Level 5:colcon.colcon_core.verb:set package 'processor_unit' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[1.121s] Level 5:colcon.colcon_core.verb:set package 'processor_unit' build argument 'cmake_clean_cache' from command line to 'False'
+[1.121s] Level 5:colcon.colcon_core.verb:set package 'processor_unit' build argument 'cmake_clean_first' from command line to 'False'
+[1.121s] Level 5:colcon.colcon_core.verb:set package 'processor_unit' build argument 'cmake_force_configure' from command line to 'False'
+[1.121s] Level 5:colcon.colcon_core.verb:set package 'processor_unit' build argument 'ament_cmake_args' from command line to 'None'
+[1.121s] Level 5:colcon.colcon_core.verb:set package 'processor_unit' build argument 'catkin_cmake_args' from command line to 'None'
+[1.121s] Level 5:colcon.colcon_core.verb:set package 'processor_unit' build argument 'catkin_skip_building_tests' from command line to 'False'
+[1.121s] DEBUG:colcon.colcon_core.verb:Building package 'processor_unit' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/raspi-earth/project_ws/build/processor_unit', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/raspi-earth/project_ws/install/processor_unit', 'merge_install': False, 'path': '/home/raspi-earth/project_ws/src/processor_unit', 'symlink_install': False, 'test_result_base': None}
+[1.121s] INFO:colcon.colcon_core.executor:Executing jobs using 'parallel' executor
+[1.123s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete
+[1.124s] INFO:colcon.colcon_ros.task.ament_python.build:Building ROS package in '/home/raspi-earth/project_ws/src/encoder_unit' with build type 'ament_python'
+[1.124s] Level 1:colcon.colcon_core.shell:create_environment_hook('encoder_unit', 'ament_prefix_path')
+[1.133s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_core.shell.bat': Not used on non-Windows systems
+[1.134s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/raspi-earth/project_ws/install/encoder_unit/share/encoder_unit/hook/ament_prefix_path.dsv'
+[1.135s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/raspi-earth/project_ws/install/encoder_unit/share/encoder_unit/hook/ament_prefix_path.sh'
+[1.136s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[1.167s] INFO:colcon.colcon_ros.task.ament_python.build:Building ROS package in '/home/raspi-earth/project_ws/src/launch_project' with build type 'ament_python'
+[1.168s] Level 1:colcon.colcon_core.shell:create_environment_hook('launch_project', 'ament_prefix_path')
+[1.168s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/raspi-earth/project_ws/install/launch_project/share/launch_project/hook/ament_prefix_path.dsv'
+[1.169s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/raspi-earth/project_ws/install/launch_project/share/launch_project/hook/ament_prefix_path.sh'
+[1.170s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[1.203s] INFO:colcon.colcon_ros.task.ament_python.build:Building ROS package in '/home/raspi-earth/project_ws/src/motor_control' with build type 'ament_python'
+[1.204s] Level 1:colcon.colcon_core.shell:create_environment_hook('motor_control', 'ament_prefix_path')
+[1.204s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/raspi-earth/project_ws/install/motor_control/share/motor_control/hook/ament_prefix_path.dsv'
+[1.205s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/raspi-earth/project_ws/install/motor_control/share/motor_control/hook/ament_prefix_path.sh'
+[1.206s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[1.234s] INFO:colcon.colcon_ros.task.ament_python.build:Building ROS package in '/home/raspi-earth/project_ws/src/processor_unit' with build type 'ament_python'
+[1.234s] Level 1:colcon.colcon_core.shell:create_environment_hook('processor_unit', 'ament_prefix_path')
+[1.235s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/raspi-earth/project_ws/install/processor_unit/share/processor_unit/hook/ament_prefix_path.dsv'
+[1.236s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/raspi-earth/project_ws/install/processor_unit/share/processor_unit/hook/ament_prefix_path.sh'
+[1.237s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[2.764s] INFO:colcon.colcon_core.task.python.build:Building Python package in '/home/raspi-earth/project_ws/src/encoder_unit'
+[2.764s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[4.185s] INFO:colcon.colcon_core.task.python.build:Building Python package in '/home/raspi-earth/project_ws/src/launch_project'
+[4.186s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[5.626s] INFO:colcon.colcon_core.task.python.build:Building Python package in '/home/raspi-earth/project_ws/src/motor_control'
+[5.627s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[7.132s] INFO:colcon.colcon_core.task.python.build:Building Python package in '/home/raspi-earth/project_ws/src/processor_unit'
+[7.132s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[10.040s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/raspi-earth/project_ws/src/processor_unit': PYTHONPATH=/home/raspi-earth/project_ws/build/processor_unit/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/processor_unit build --build-base /home/raspi-earth/project_ws/build/processor_unit/build install --record /home/raspi-earth/project_ws/build/processor_unit/install.log --single-version-externally-managed install_data
+[11.238s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/raspi-earth/project_ws/src/encoder_unit': PYTHONPATH=/home/raspi-earth/project_ws/build/encoder_unit/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/raspi-earth/project_ws/install/encoder_unit/lib/python3.11/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/encoder_unit build --build-base /home/raspi-earth/project_ws/build/encoder_unit/build install --record /home/raspi-earth/project_ws/build/encoder_unit/install.log --single-version-externally-managed install_data
+[11.691s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/raspi-earth/project_ws/src/motor_control': PYTHONPATH=/home/raspi-earth/project_ws/build/motor_control/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/raspi-earth/project_ws/install/motor_control/lib/python3.11/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/motor_control build --build-base /home/raspi-earth/project_ws/build/motor_control/build install --record /home/raspi-earth/project_ws/build/motor_control/install.log --single-version-externally-managed install_data
+[11.899s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/raspi-earth/project_ws/src/launch_project': PYTHONPATH=/home/raspi-earth/project_ws/build/launch_project/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/raspi-earth/project_ws/install/launch_project/lib/python3.11/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/launch_project build --build-base /home/raspi-earth/project_ws/build/launch_project/build install --record /home/raspi-earth/project_ws/build/launch_project/install.log --single-version-externally-managed install_data
+[12.917s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/raspi-earth/project_ws/src/processor_unit' returned '0': PYTHONPATH=/home/raspi-earth/project_ws/build/processor_unit/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/processor_unit build --build-base /home/raspi-earth/project_ws/build/processor_unit/build install --record /home/raspi-earth/project_ws/build/processor_unit/install.log --single-version-externally-managed install_data
+[12.941s] Level 1:colcon.colcon_core.environment:checking '/home/raspi-earth/project_ws/install/processor_unit' for CMake module files
+[12.947s] Level 1:colcon.colcon_core.environment:checking '/home/raspi-earth/project_ws/install/processor_unit' for CMake config files
+[12.948s] Level 1:colcon.colcon_core.environment:checking '/home/raspi-earth/project_ws/install/processor_unit/lib'
+[12.948s] Level 1:colcon.colcon_core.environment:checking '/home/raspi-earth/project_ws/install/processor_unit/bin'
+[12.948s] Level 1:colcon.colcon_core.environment:checking '/home/raspi-earth/project_ws/install/processor_unit/lib/pkgconfig/processor_unit.pc'
+[12.949s] Level 1:colcon.colcon_core.environment:checking '/home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages'
+[12.949s] Level 1:colcon.colcon_core.shell:create_environment_hook('processor_unit', 'pythonpath')
+[12.949s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/raspi-earth/project_ws/install/processor_unit/share/processor_unit/hook/pythonpath.dsv'
+[12.950s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/raspi-earth/project_ws/install/processor_unit/share/processor_unit/hook/pythonpath.sh'
+[12.954s] Level 1:colcon.colcon_core.environment:checking '/home/raspi-earth/project_ws/install/processor_unit/bin'
+[12.954s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(processor_unit)
+[12.955s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/raspi-earth/project_ws/install/processor_unit/share/processor_unit/package.dsv'
+[12.957s] INFO:colcon.colcon_core.shell:Creating package script '/home/raspi-earth/project_ws/install/processor_unit/share/processor_unit/package.sh'
+[12.964s] INFO:colcon.colcon_core.shell:Creating package script '/home/raspi-earth/project_ws/install/processor_unit/share/processor_unit/package.bash'
+[12.965s] INFO:colcon.colcon_core.shell:Creating package script '/home/raspi-earth/project_ws/install/processor_unit/share/processor_unit/package.zsh'
+[12.967s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/raspi-earth/project_ws/install/processor_unit/share/colcon-core/packages/processor_unit)
+[14.519s] Level 1:colcon.colcon_core.environment:checking '/home/raspi-earth/project_ws/install/encoder_unit' for CMake module files
+[14.520s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/raspi-earth/project_ws/src/encoder_unit' returned '0': PYTHONPATH=/home/raspi-earth/project_ws/build/encoder_unit/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/raspi-earth/project_ws/install/encoder_unit/lib/python3.11/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/encoder_unit build --build-base /home/raspi-earth/project_ws/build/encoder_unit/build install --record /home/raspi-earth/project_ws/build/encoder_unit/install.log --single-version-externally-managed install_data
+[14.523s] Level 1:colcon.colcon_core.environment:checking '/home/raspi-earth/project_ws/install/encoder_unit' for CMake config files
+[14.524s] Level 1:colcon.colcon_core.environment:checking '/home/raspi-earth/project_ws/install/encoder_unit/lib'
+[14.524s] Level 1:colcon.colcon_core.environment:checking '/home/raspi-earth/project_ws/install/encoder_unit/bin'
+[14.524s] Level 1:colcon.colcon_core.environment:checking '/home/raspi-earth/project_ws/install/encoder_unit/lib/pkgconfig/encoder_unit.pc'
+[14.524s] Level 1:colcon.colcon_core.environment:checking '/home/raspi-earth/project_ws/install/encoder_unit/lib/python3.11/site-packages'
+[14.524s] Level 1:colcon.colcon_core.shell:create_environment_hook('encoder_unit', 'pythonpath')
+[14.525s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/raspi-earth/project_ws/install/encoder_unit/share/encoder_unit/hook/pythonpath.dsv'
+[14.525s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/raspi-earth/project_ws/install/encoder_unit/share/encoder_unit/hook/pythonpath.sh'
+[14.529s] Level 1:colcon.colcon_core.environment:checking '/home/raspi-earth/project_ws/install/encoder_unit/bin'
+[14.529s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(encoder_unit)
+[14.531s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/raspi-earth/project_ws/install/encoder_unit/share/encoder_unit/package.dsv'
+[14.536s] INFO:colcon.colcon_core.shell:Creating package script '/home/raspi-earth/project_ws/install/encoder_unit/share/encoder_unit/package.sh'
+[14.538s] INFO:colcon.colcon_core.shell:Creating package script '/home/raspi-earth/project_ws/install/encoder_unit/share/encoder_unit/package.bash'
+[14.541s] INFO:colcon.colcon_core.shell:Creating package script '/home/raspi-earth/project_ws/install/encoder_unit/share/encoder_unit/package.zsh'
+[14.543s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/raspi-earth/project_ws/install/encoder_unit/share/colcon-core/packages/encoder_unit)
+[14.687s] Level 1:colcon.colcon_core.environment:checking '/home/raspi-earth/project_ws/install/motor_control' for CMake module files
+[14.688s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/raspi-earth/project_ws/src/motor_control' returned '0': PYTHONPATH=/home/raspi-earth/project_ws/build/motor_control/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/raspi-earth/project_ws/install/motor_control/lib/python3.11/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/motor_control build --build-base /home/raspi-earth/project_ws/build/motor_control/build install --record /home/raspi-earth/project_ws/build/motor_control/install.log --single-version-externally-managed install_data
+[14.692s] Level 1:colcon.colcon_core.environment:checking '/home/raspi-earth/project_ws/install/motor_control' for CMake config files
+[14.696s] Level 1:colcon.colcon_core.environment:checking '/home/raspi-earth/project_ws/install/motor_control/lib'
+[14.696s] Level 1:colcon.colcon_core.environment:checking '/home/raspi-earth/project_ws/install/motor_control/bin'
+[14.696s] Level 1:colcon.colcon_core.environment:checking '/home/raspi-earth/project_ws/install/motor_control/lib/pkgconfig/motor_control.pc'
+[14.697s] Level 1:colcon.colcon_core.environment:checking '/home/raspi-earth/project_ws/install/motor_control/lib/python3.11/site-packages'
+[14.697s] Level 1:colcon.colcon_core.shell:create_environment_hook('motor_control', 'pythonpath')
+[14.697s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/raspi-earth/project_ws/install/motor_control/share/motor_control/hook/pythonpath.dsv'
+[14.698s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/raspi-earth/project_ws/install/motor_control/share/motor_control/hook/pythonpath.sh'
+[14.702s] Level 1:colcon.colcon_core.environment:checking '/home/raspi-earth/project_ws/install/motor_control/bin'
+[14.703s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(motor_control)
+[14.704s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/raspi-earth/project_ws/install/motor_control/share/motor_control/package.dsv'
+[14.708s] INFO:colcon.colcon_core.shell:Creating package script '/home/raspi-earth/project_ws/install/motor_control/share/motor_control/package.sh'
+[14.710s] INFO:colcon.colcon_core.shell:Creating package script '/home/raspi-earth/project_ws/install/motor_control/share/motor_control/package.bash'
+[14.711s] INFO:colcon.colcon_core.shell:Creating package script '/home/raspi-earth/project_ws/install/motor_control/share/motor_control/package.zsh'
+[14.712s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/raspi-earth/project_ws/install/motor_control/share/colcon-core/packages/motor_control)
+[14.948s] Level 1:colcon.colcon_core.environment:checking '/home/raspi-earth/project_ws/install/launch_project' for CMake module files
+[14.949s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/raspi-earth/project_ws/src/launch_project' returned '0': PYTHONPATH=/home/raspi-earth/project_ws/build/launch_project/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/raspi-earth/project_ws/install/launch_project/lib/python3.11/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/launch_project build --build-base /home/raspi-earth/project_ws/build/launch_project/build install --record /home/raspi-earth/project_ws/build/launch_project/install.log --single-version-externally-managed install_data
+[14.949s] Level 1:colcon.colcon_core.environment:checking '/home/raspi-earth/project_ws/install/launch_project' for CMake config files
+[14.950s] Level 1:colcon.colcon_core.environment:checking '/home/raspi-earth/project_ws/install/launch_project/lib'
+[14.950s] Level 1:colcon.colcon_core.environment:checking '/home/raspi-earth/project_ws/install/launch_project/bin'
+[14.950s] Level 1:colcon.colcon_core.environment:checking '/home/raspi-earth/project_ws/install/launch_project/lib/pkgconfig/launch_project.pc'
+[14.950s] Level 1:colcon.colcon_core.environment:checking '/home/raspi-earth/project_ws/install/launch_project/lib/python3.11/site-packages'
+[14.950s] Level 1:colcon.colcon_core.shell:create_environment_hook('launch_project', 'pythonpath')
+[14.951s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/raspi-earth/project_ws/install/launch_project/share/launch_project/hook/pythonpath.dsv'
+[14.951s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/raspi-earth/project_ws/install/launch_project/share/launch_project/hook/pythonpath.sh'
+[14.953s] Level 1:colcon.colcon_core.environment:checking '/home/raspi-earth/project_ws/install/launch_project/bin'
+[14.953s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(launch_project)
+[14.953s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/raspi-earth/project_ws/install/launch_project/share/launch_project/package.dsv'
+[14.954s] INFO:colcon.colcon_core.shell:Creating package script '/home/raspi-earth/project_ws/install/launch_project/share/launch_project/package.sh'
+[14.955s] INFO:colcon.colcon_core.shell:Creating package script '/home/raspi-earth/project_ws/install/launch_project/share/launch_project/package.bash'
+[14.956s] INFO:colcon.colcon_core.shell:Creating package script '/home/raspi-earth/project_ws/install/launch_project/share/launch_project/package.zsh'
+[14.957s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/raspi-earth/project_ws/install/launch_project/share/colcon-core/packages/launch_project)
+[14.957s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:closing loop
+[14.958s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:loop closed
+[14.958s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete finished with '0'
+[14.958s] DEBUG:colcon.colcon_core.event_reactor:joining thread
+[14.978s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.notify_send': Could not find 'notify-send'
+[14.978s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.terminal_notifier': Not used on non-Darwin systems
+[14.978s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.win32': Not used on non-Windows systems
+[14.978s] INFO:colcon.colcon_notification.desktop_notification:Sending desktop notification using 'notify2'
+[14.979s] DEBUG:colcon.colcon_notification.desktop_notification.notify2:Failed to initialize notify2: org.freedesktop.DBus.Error.ServiceUnknown: The name org.freedesktop.Notifications was not provided by any .service files
+[14.979s] DEBUG:colcon.colcon_core.event_reactor:joined thread
+[14.980s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/raspi-earth/project_ws/install/local_setup.sh'
+[14.981s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/raspi-earth/project_ws/install/_local_setup_util_sh.py'
+[14.984s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/raspi-earth/project_ws/install/setup.sh'
+[14.997s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/raspi-earth/project_ws/install/local_setup.bash'
+[14.998s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/raspi-earth/project_ws/install/setup.bash'
+[15.027s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/raspi-earth/project_ws/install/local_setup.zsh'
+[15.030s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/raspi-earth/project_ws/install/setup.zsh'

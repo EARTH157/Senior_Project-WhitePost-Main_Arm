@@ -1,0 +1,48 @@
+[0.000000] (-) TimerEvent: {}
+[0.001521] (encoder_unit) JobQueued: {'identifier': 'encoder_unit', 'dependencies': OrderedDict()}
+[0.001604] (launch_project) JobQueued: {'identifier': 'launch_project', 'dependencies': OrderedDict()}
+[0.001634] (motor_control) JobQueued: {'identifier': 'motor_control', 'dependencies': OrderedDict()}
+[0.001656] (processor_unit) JobQueued: {'identifier': 'processor_unit', 'dependencies': OrderedDict()}
+[0.001675] (encoder_unit) JobStarted: {'identifier': 'encoder_unit'}
+[0.043049] (launch_project) JobStarted: {'identifier': 'launch_project'}
+[0.086910] (motor_control) JobStarted: {'identifier': 'motor_control'}
+[0.099088] (-) TimerEvent: {}
+[0.123502] (processor_unit) JobStarted: {'identifier': 'processor_unit'}
+[0.199238] (-) TimerEvent: {}
+[0.302732] (-) TimerEvent: {}
+[0.369811] (encoder_unit) JobEnded: {'identifier': 'encoder_unit', 'rc': 0}
+[0.402870] (-) TimerEvent: {}
+[0.503523] (-) TimerEvent: {}
+[0.606144] (-) TimerEvent: {}
+[0.706595] (-) TimerEvent: {}
+[0.808407] (-) TimerEvent: {}
+[0.909098] (-) TimerEvent: {}
+[1.009946] (-) TimerEvent: {}
+[1.111070] (-) TimerEvent: {}
+[1.211960] (-) TimerEvent: {}
+[1.312637] (-) TimerEvent: {}
+[1.415947] (-) TimerEvent: {}
+[1.517981] (-) TimerEvent: {}
+[1.618552] (-) TimerEvent: {}
+[1.719366] (-) TimerEvent: {}
+[1.820513] (-) TimerEvent: {}
+[1.922730] (-) TimerEvent: {}
+[2.023626] (-) TimerEvent: {}
+[2.128118] (-) TimerEvent: {}
+[2.229308] (-) TimerEvent: {}
+[2.329899] (-) TimerEvent: {}
+[2.430484] (-) TimerEvent: {}
+[2.532160] (-) TimerEvent: {}
+[2.632892] (-) TimerEvent: {}
+[2.733437] (-) TimerEvent: {}
+[2.834214] (-) TimerEvent: {}
+[2.934717] (-) TimerEvent: {}
+[3.035802] (-) TimerEvent: {}
+[3.136969] (-) TimerEvent: {}
+[3.238242] (-) TimerEvent: {}
+[3.339972] (-) TimerEvent: {}
+[3.440786] (-) TimerEvent: {}
+[3.487111] (processor_unit) JobEnded: {'identifier': 'processor_unit', 'rc': 'SIGINT'}
+[3.488081] (launch_project) JobEnded: {'identifier': 'launch_project', 'rc': 'SIGINT'}
+[3.489151] (motor_control) JobEnded: {'identifier': 'motor_control', 'rc': 'SIGINT'}
+[3.499312] (-) EventReactorShutdown: {}

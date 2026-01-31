@@ -72,42 +72,58 @@ class IKSolverNode(Node):
         
         # ถอยระยะจากปลายแขน 190mm (l4+l5)
         w_wrist = w_target - self.l_end
-        z_wrist = z - self.l1
+        z_wrist = z
 
         # ระยะจาก Joint 2 ไป Wrist
-        D = math.sqrt(w_wrist**2 + z_wrist**2)
+        # คำนวณ D (ระยะจาก Joint 2 ไป Wrist)
+        D_sq = w_wrist**2 + z_wrist**2
+        D = math.sqrt(D_sq)
 
         # Check 1: แขนเอื้อมถึงหรือไม่?
         if D > (self.l2 + self.l3):
             raise ValueError(f"Target Unreachable: Distance {D:.2f} > Max Reach {self.l2 + self.l3}")
+        
+        # 1. Alpha: มุมเงยของเส้น D (เทียบกับแนวราบ) -> ถูกแล้ว
+        alpha = math.atan2(z_wrist, w_wrist)
 
-        # --- 4. Joint 3 (Elbow) ---
-        cos_theta3 = (D**2 - self.l2**2 - self.l3**2) / (2 * self.l2 * self.l3)
-        cos_theta3 = max(min(cos_theta3, 1.0), -1.0) # กัน Error ทศนิยม
-        theta3 = math.acos(cos_theta3) # Elbow Up
+        # 2. Gamma: มุมภายในสามเหลี่ยมตรงหัวไหล่ (ระหว่าง L2 กับ D) -> แก้สูตรใหม่
+        # สูตร: (L2^2 + D^2 - L3^2) / (2 * L2 * D)
+        cos_gamma = (self.l2**2 + D_sq - self.l3**2) / (2 * self.l2 * D)
+        gamma = math.acos(max(min(cos_gamma, 1.0), -1.0)) # Clamp กัน Error
+
+        # 3. Beta: มุมภายในสามเหลี่ยมตรงข้อศอก (ระหว่าง L2 กับ L3) -> ถูกแล้ว
+        cos_beta = (self.l2**2 + self.l3**2 - D_sq) / (2 * self.l2 * self.l3)
+        beta = math.acos(max(min(cos_beta, 1.0), -1.0))
 
         # --- 5. Joint 2 (Shoulder) ---
-        beta = math.atan2(z_wrist, w_wrist)
-        cos_alpha = (self.l2**2 + D**2 - self.l3**2) / (2 * self.l2 * D)
-        cos_alpha = max(min(cos_alpha, 1.0), -1.0)
-        alpha = math.acos(cos_alpha)
-        
-        theta2 = beta + alpha
-
+        theta2 = alpha - gamma
+        theta2 = theta2 + (2*gamma)
         # Check 2: Joint 2 เกิน Limit 180 องศาหรือไม่? (แก้ปัญหาเคสระยะประชิด)
-        theta2_deg = math.degrees(theta2)
-        if not (0 <= theta2_deg <= 180.1): # เผื่อ Error นิดหน่อย (tolerance)
-            raise ValueError(f"Joint 2 Limit Exceeded: {theta2_deg:.2f} deg (Max 180). Target is too close to base.")
+        #theta2 = normalize_angle_positive(theta2)
+        #if not (0 <= math.degrees(theta2) <= 180.1): # เผื่อ Error นิดหน่อย (tolerance)
+        #    raise ValueError(f"Joint 2 Limit Exceeded: {math.degrees(theta2):.2f} deg (Max 180). Target is too close to base.")
+
+        # --- 4. Joint 3 (Elbow) ---
+        theta3 = math.pi - beta
+        theta3 = -(theta3)
+        theta3_raw = theta3
+        theta3 = math.pi + theta3
 
         # --- 6. Joint 4 (Wrist Pitch) ---
         # สมการ: theta2 + theta3 + theta4 = 0 (เพื่อให้ขนานพื้น)
-        theta4_raw = -(theta2 + theta3)
+        if -theta3_raw > theta2:
+            theta4_raw = -(theta2 + theta3_raw)
+            theta4_raw = (math.pi / 2) + theta4_raw
+        else:
+            # มุม 2 มากกว่า มุม 3
+            theta4_raw = (theta2 + theta3_raw)
+            delta = theta2 - theta3_raw
+            phi = (math.pi / 2) - delta
+            theta4_raw = (theta4_raw + phi) - delta
         # แปลงให้เป็นบวก (แก้ปัญหาค่าติดลบ -230 -> +130)
         theta4 = normalize_angle_positive(theta4_raw)
 
-        # --- 7. Joint 5 (Wrist Roll) ---
-        # สมการ: theta1 + theta5 = 90 deg (เพื่อให้หน้าแปลนขนานแกน Y)
-        
+        # --- 7. Joint 5 ---
         theta1_for_5 = theta1
         if y >= 0:
             if x >= 0:
