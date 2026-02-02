@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
+import math
+
+# Import message types
+from geometry_msgs.msg import Point
+from sensor_msgs.msg import JointState
 from std_msgs.msg import Float32
 
 class Main_Processor(Node):
@@ -30,9 +35,9 @@ class Main_Processor(Node):
         self.publisher2_calibrate_ = self.create_publisher(Float32, 'joint2/calibrate', 10)
         self.publisher3_calibrate_ = self.create_publisher(Float32, 'joint3/calibrate', 10)
 
-        self.subangle1_ = self.create_subscription(Float32, 'joint1/angle', self.angle_callback, 10)
-        self.subangle2_ = self.create_subscription(Float32, 'joint2/angle', self.angle_callback, 10)
-        self.subangle3_ = self.create_subscription(Float32, 'joint3/angle', self.angle_callback, 10)
+        #self.subangle1_ = self.create_subscription(Float32, 'joint1/angle', self.angle_callback, 10)
+        #self.subangle2_ = self.create_subscription(Float32, 'joint2/angle', self.angle_callback, 10)
+        #self.subangle3_ = self.create_subscription(Float32, 'joint3/angle', self.angle_callback, 10)
         
         self.get_logger().info('IK Solver Node Started. Waiting for /target_position...')
         

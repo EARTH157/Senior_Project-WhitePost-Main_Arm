@@ -36,6 +36,8 @@ ros2 topic pub /servo/set_angle std_msgs/msg/Float32MultiArray "{data: [0.0, 90.
 
 ros2 topic pub --once /target_position geometry_msgs/msg/Point "{x: 500.0, y: 0.0, z: 300.0}"
 
+ros2 topic echo
+
 # เลือก channel 0
 
 i2cset -y 1 0x70 0x01
