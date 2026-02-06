@@ -17,7 +17,7 @@ class StepperNode(Node):
         self.declare_parameter('pin_dir', 27)      # DIR+ (DIR- → GND)
         self.declare_parameter('pin_pul', 17)      # PUL+ (PUL- → GND)
         self.declare_parameter('ena_active_high', False)   # บางไดรเวอร์ Enable = LOW
-        self.declare_parameter('step_delay', 0.0008)      # หน่วงต่อครึ่งคาบ (ควบคุมความเร็ว)
+        self.declare_parameter('step_delay', 0.0010)      # หน่วงต่อครึ่งคาบ (ควบคุมความเร็ว)
         self.declare_parameter('test_on_start', False)     # ทดสอบหมุนตอนเริ่ม
 
         self.PIN_ENA = int(self.get_parameter('pin_ena').value)
@@ -65,7 +65,7 @@ class StepperNode(Node):
     def step(self, n_steps: int, delay: float):
         """ส่งพัลส์ n_steps ครั้ง, delay = หน่วงต่อครึ่งคาบ (ขึ้น/ลง)"""
         # safety: delay ต้องมากพอ ไม่งั้นมอเตอร์อาจไม่รับพัลส์
-        d = max(delay, 0.00005)  # 50 µs ต่ำสุดแบบระวัง ๆ (ขึ้นกับไดรเวอร์/โหลดจริง)
+        d = max(delay, 0.00001)  # 50 µs ต่ำสุดแบบระวัง ๆ (ขึ้นกับไดรเวอร์/โหลดจริง)
         for _ in range(n_steps):
             GPIO.output(self.PIN_PUL, GPIO.HIGH)
             time.sleep(d)

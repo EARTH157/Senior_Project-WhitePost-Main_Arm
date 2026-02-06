@@ -284,7 +284,23 @@ class Joint1Driver(Node):
             self.bus.write_byte(MUX_ADDR, 1 << MUX_CHANNEL)
             hi = self.bus.read_byte_data(AS5600_ADDR, 0x0E) & 0x0F
             lo = self.bus.read_byte_data(AS5600_ADDR, 0x0F)
-            return ((hi << 8) | lo) * 360.0 / 4096.0
+            current_raw = (hi << 8) | lo
+            
+            # ==========================================
+            # ⚙️ ใส่ค่าที่คุณจดได้ตรงนี้ (ตัวอย่าง)
+            # ==========================================
+            RAW_AT_0_DEG  = 585.0   # ค่า Raw ตอนตั้งฉาก (แก้เลขนี้ตามที่จด)
+            RAW_AT_90_DEG = 1695.0   # ค่า Raw ตอนกาง 90 องศา (แก้เลขนี้ตามที่จด)
+            
+            # คำนวณหาความชัน (Slope) ว่า 1 องศา ขยับกี่ Raw
+            # สูตร: (y2 - y1) / (x2 - x1)
+            slope = (90.0 - 0.0) / (RAW_AT_90_DEG - RAW_AT_0_DEG)
+            
+            # คำนวณมุมจริง
+            # สูตร: y = m(x - x1) + y1
+            real_angle = slope * (current_raw - RAW_AT_0_DEG) + 0.0
+            
+            return real_angle
         except:
             return None
 
@@ -331,7 +347,7 @@ class Joint1Driver(Node):
         if val: 
             self.zero_offset = val
             self.is_homed = True
-            self.current_target = 0.0 
+            self.current_target = 0.0
             self.get_logger().info(f"✅ Homing Done. New Offset: {self.zero_offset:.2f}")
         else:
             self.get_logger().error("❌ Homing Failed: Sensor Error")

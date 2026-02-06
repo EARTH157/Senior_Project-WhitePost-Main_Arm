@@ -26,17 +26,17 @@ AS5600_ADDR = 0x36
 MUX_CHANNEL = 3
 
 # PID Parameters
-KP = 0.50
-KI = 0.39
-KD = 0.01      
+KP = 0.2
+KI = 0.05
+KD = 0.02
 
 # Speed Settings
-MIN_DELAY = 0.0003   
+MIN_DELAY = 0.0008   
 MAX_DELAY = 0.0010   
 PULSE_WIDTH = 0.00001 
 
-ANGLE_TOLERANCE = 0.5 
-WARN_DIFF_THRESHOLD = 0.5  # ยอมให้คลาดเคลื่อนได้ 0.5 องศา ถ้าเกินนี้ต้อง Homing ใหม่
+ANGLE_TOLERANCE = 2.0 
+WARN_DIFF_THRESHOLD = 1.0  # ยอมให้คลาดเคลื่อนได้ 0.5 องศา ถ้าเกินนี้ต้อง Homing ใหม่
 STATE_FILE = "joint3_last_state.json" 
 
 class Joint3Driver(Node):
@@ -283,7 +283,29 @@ class Joint3Driver(Node):
             self.bus.write_byte(MUX_ADDR, 1 << MUX_CHANNEL)
             hi = self.bus.read_byte_data(AS5600_ADDR, 0x0E) & 0x0F
             lo = self.bus.read_byte_data(AS5600_ADDR, 0x0F)
-            return ((hi << 8) | lo) * 360.0 / 4096.0
+            current_raw = (hi << 8) | lo
+            
+            # ==========================================
+            # ⚙️ 2-POINT CALIBRATION FOR JOINT 3
+            # ==========================================
+            # P1: Raw 325  = 8.0 องศา
+            # P2: Raw 2266 = 90.0 องศา
+            
+            P1_RAW = 325.0
+            P1_ANG = 8.0
+            
+            P2_RAW = 2285.0
+            P2_ANG = 180.0
+            
+            # หาความชัน (Slope)
+            # Slope = (90 - 8) / (2266 - 325) = 82 / 1941 = 0.0422
+            slope = (P2_ANG - P1_ANG) / (P2_RAW - P1_RAW)
+            
+            # สูตรสมการเส้นตรง: y = y1 + m(x - x1)
+            real_angle = P1_ANG + slope * (current_raw - P1_RAW)
+            
+            return real_angle
+
         except:
             return None
 
@@ -328,7 +350,7 @@ class Joint3Driver(Node):
         # 5. Set Zero
         val = self.read_as5600()
         if val: 
-            self.zero_offset = val+8.0
+            self.zero_offset = 0.0
             self.is_homed = True
             self.current_target = 8.0 
             self.get_logger().info(f"✅ Homing Done. New Offset: {self.zero_offset:.2f}")

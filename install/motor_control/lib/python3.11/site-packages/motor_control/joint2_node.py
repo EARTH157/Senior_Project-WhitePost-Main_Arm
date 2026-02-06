@@ -35,7 +35,7 @@ MIN_DELAY = 0.0003
 MAX_DELAY = 0.0010   
 PULSE_WIDTH = 0.00001 
 
-ANGLE_TOLERANCE = 0.5 
+ANGLE_TOLERANCE = 2.0
 WARN_DIFF_THRESHOLD = 2.0  
 STATE_FILE = "joint2_last_state.json" 
 
@@ -269,8 +269,41 @@ class Joint2Driver(Node):
             self.bus.write_byte(MUX_ADDR, 1 << MUX_CHANNEL)
             hi = self.bus.read_byte_data(AS5600_ADDR, 0x0E) & 0x0F
             lo = self.bus.read_byte_data(AS5600_ADDR, 0x0F)
-            return ((hi << 8) | lo) * 360.0 / 4096.0
-        except:
+            current_raw = (hi << 8) | lo
+            
+            # ==========================================
+            # ⚙️ 3-POINT CALIBRATION (Piecewise)
+            # ==========================================
+            # กำหนดจุดอ้างอิง 3 จุดตามที่คุณวัดจริง
+            P1_RAW = 1871.0   # จุดที่ 0 องศา
+            P2_RAW = 2656.0   # จุดที่ 90 องศา
+            P3_RAW = 4042.0   # จุดที่ 180 องศา (Limit Switch)
+            
+            P1_ANG = 0.0
+            P2_ANG = 90.0
+            P3_ANG = 180.0
+            
+            real_angle = 0.0
+            
+            # 📐 คำนวณแบบแยกช่วง (Piecewise Interpolation)
+            
+            if current_raw <= P2_RAW:
+                # --- [ช่วงที่ 1: 0 ถึง 90 องศา] ---
+                # ใช้ความชันของช่วงแรก
+                # สูตร: angle = 0 + (raw - 1883) * (90 / (2656-1883))
+                slope1 = (P2_ANG - P1_ANG) / (P2_RAW - P1_RAW)
+                real_angle = P1_ANG + slope1 * (current_raw - P1_RAW)
+                
+            else:
+                # --- [ช่วงที่ 2: 90 ถึง 180 องศา] ---
+                # ใช้ความชันของช่วงหลัง (ซึ่งชันน้อยกว่า)
+                # สูตร: angle = 90 + (raw - 2656) * (90 / (4033-2656))
+                slope2 = (P3_ANG - P2_ANG) / (P3_RAW - P2_RAW)
+                real_angle = P2_ANG + slope2 * (current_raw - P2_RAW)
+
+            return real_angle
+
+        except Exception as e:
             return None
 
     def report_status(self):
@@ -321,8 +354,12 @@ class Joint2Driver(Node):
         # ดังนั้น: Offset = Raw - 180
         val = self.read_as5600()
         if val: 
-            self.zero_offset = val - 180.0
+            self.zero_offset = 0.0
             self.is_homed = True
+            
+            # เช็คความแม่นยำ (แค่ปริ้นดูเฉยๆ)
+            current_check = self.get_calibrated_angle()
+            self.get_logger().info(f"✅ Homing Done. Sensor reads: {current_check:.2f}° (Should be approx 180°)")
             
             # 🔥 Set Initial Target to 180 (Hold current position)
             self.current_target = 180.0 
