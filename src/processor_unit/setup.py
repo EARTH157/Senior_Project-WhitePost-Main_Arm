@@ -27,6 +27,7 @@ setup(
             'main_processor = processor_unit.main_processor:main',
             'test = processor_unit.test:main',
             'test1 = processor_unit.test1:main',
+            'uart_zero_two_w = processor_unit.uart_zero_two_w:main',
         ],
     },
 )

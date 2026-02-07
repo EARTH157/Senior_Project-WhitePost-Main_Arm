@@ -15,6 +15,7 @@ processor_unit/camera_front.py
 processor_unit/main_processor.py
 processor_unit/test.py
 processor_unit/test1.py
+processor_unit/uart_zero_two_w.py
 resource/processor_unit
 test/test_copyright.py
 test/test_flake8.py
