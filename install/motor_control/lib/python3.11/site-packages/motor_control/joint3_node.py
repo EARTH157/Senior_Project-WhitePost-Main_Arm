@@ -3,6 +3,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32, Bool
 import RPi.GPIO as GPIO
+import fcntl
 import smbus2
 import time
 import sys
@@ -26,22 +27,25 @@ AS5600_ADDR = 0x36
 MUX_CHANNEL = 3
 
 # PID Parameters
-KP = 0.2
-KI = 0.05
-KD = 0.02
+KP = 0.1
+KI = 0.01
+KD = 0.09
 
 # Speed Settings
-MIN_DELAY = 0.0008   
+MIN_DELAY = 0.0005   
 MAX_DELAY = 0.0010   
 PULSE_WIDTH = 0.00001 
 
-ANGLE_TOLERANCE = 2.0 
+ANGLE_TOLERANCE = 3.5  # ถ้าอยู่ในนี้ถือว่าเข้าที่แล้ว 
 WARN_DIFF_THRESHOLD = 1.0  # ยอมให้คลาดเคลื่อนได้ 0.5 องศา ถ้าเกินนี้ต้อง Homing ใหม่
 STATE_FILE = "joint3_last_state.json" 
 
 class Joint3Driver(Node):
     def __init__(self):
         super().__init__('joint3_driver_node')
+        
+        self.lock_file = open('/tmp/raspi_i2c_lock', 'w+')
+        
         self.zero_offset = 0.0
         self.is_homed = False
         self.current_target = None 
@@ -279,8 +283,13 @@ class Joint3Driver(Node):
         return None
 
     def read_as5600(self):
+        real_angle = None
+        
+        # [3] เริ่มจองคิว (Lock)
+        fcntl.flock(self.lock_file, fcntl.LOCK_EX)
+        
         try:
-            self.bus.write_byte(MUX_ADDR, 1 << MUX_CHANNEL)
+            self.bus.write_byte(0x70, 1 << 3)
             hi = self.bus.read_byte_data(AS5600_ADDR, 0x0E) & 0x0F
             lo = self.bus.read_byte_data(AS5600_ADDR, 0x0F)
             current_raw = (hi << 8) | lo
@@ -294,7 +303,7 @@ class Joint3Driver(Node):
             P1_RAW = 325.0
             P1_ANG = 8.0
             
-            P2_RAW = 2285.0
+            P2_RAW = 2279.0
             P2_ANG = 180.0
             
             # หาความชัน (Slope)
@@ -304,10 +313,13 @@ class Joint3Driver(Node):
             # สูตรสมการเส้นตรง: y = y1 + m(x - x1)
             real_angle = P1_ANG + slope * (current_raw - P1_RAW)
             
-            return real_angle
-
-        except:
-            return None
+        except Exception as e:
+            pass # หรือ Log error
+        finally:
+            # [4] คืนบัตรคิว (Unlock)
+            fcntl.flock(self.lock_file, fcntl.LOCK_UN)
+            
+        return real_angle # ส่งค่าที่คำนวณแล้วกลับไป
 
     def report_status(self):
         angle = self.get_calibrated_angle()

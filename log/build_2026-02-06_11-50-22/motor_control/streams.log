@@ -1,0 +1,31 @@
+[14.071s] Invoking command in '/home/raspi-earth/project_ws/src/motor_control': PYTHONPATH=/home/raspi-earth/project_ws/build/motor_control/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/raspi-earth/project_ws/install/motor_control/lib/python3.11/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/motor_control build --build-base /home/raspi-earth/project_ws/build/motor_control/build install --record /home/raspi-earth/project_ws/build/motor_control/install.log --single-version-externally-managed install_data
+[16.043s] running egg_info
+[16.153s] writing ../../build/motor_control/motor_control.egg-info/PKG-INFO
+[16.162s] writing dependency_links to ../../build/motor_control/motor_control.egg-info/dependency_links.txt
+[16.163s] writing entry points to ../../build/motor_control/motor_control.egg-info/entry_points.txt
+[16.164s] writing requirements to ../../build/motor_control/motor_control.egg-info/requires.txt
+[16.171s] writing top-level names to ../../build/motor_control/motor_control.egg-info/top_level.txt
+[16.469s] reading manifest file '../../build/motor_control/motor_control.egg-info/SOURCES.txt'
+[16.473s] adding license file 'LICENSE'
+[16.475s] writing manifest file '../../build/motor_control/motor_control.egg-info/SOURCES.txt'
+[16.476s] running build
+[16.476s] running build_py
+[16.477s] copying motor_control/joint3_node.py -> /home/raspi-earth/project_ws/build/motor_control/build/lib/motor_control
+[16.481s] running install
+[16.499s] running install_lib
+[16.557s] copying /home/raspi-earth/project_ws/build/motor_control/build/lib/motor_control/joint3_node.py -> /home/raspi-earth/project_ws/install/motor_control/lib/python3.11/site-packages/motor_control
+[16.578s] byte-compiling /home/raspi-earth/project_ws/install/motor_control/lib/python3.11/site-packages/motor_control/joint3_node.py to joint3_node.cpython-311.pyc
+[16.586s] running install_data
+[16.591s] running install_egg_info
+[16.788s] removing '/home/raspi-earth/project_ws/install/motor_control/lib/python3.11/site-packages/motor_control-0.0.0-py3.11.egg-info' (and everything under it)
+[16.796s] Copying ../../build/motor_control/motor_control.egg-info to /home/raspi-earth/project_ws/install/motor_control/lib/python3.11/site-packages/motor_control-0.0.0-py3.11.egg-info
+[16.807s] running install_scripts
+[17.106s] Installing joint1_node script to /home/raspi-earth/project_ws/install/motor_control/lib/motor_control
+[17.107s] Installing joint2_node script to /home/raspi-earth/project_ws/install/motor_control/lib/motor_control
+[17.108s] Installing joint3_node script to /home/raspi-earth/project_ws/install/motor_control/lib/motor_control
+[17.109s] Installing servodrive script to /home/raspi-earth/project_ws/install/motor_control/lib/motor_control
+[17.110s] Installing stepmotor1 script to /home/raspi-earth/project_ws/install/motor_control/lib/motor_control
+[17.110s] Installing stepmotor2 script to /home/raspi-earth/project_ws/install/motor_control/lib/motor_control
+[17.111s] Installing stepmotor3 script to /home/raspi-earth/project_ws/install/motor_control/lib/motor_control
+[17.112s] writing list of installed files to '/home/raspi-earth/project_ws/build/motor_control/install.log'
+[17.350s] Invoked command in '/home/raspi-earth/project_ws/src/motor_control' returned '0': PYTHONPATH=/home/raspi-earth/project_ws/build/motor_control/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/raspi-earth/project_ws/install/motor_control/lib/python3.11/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/motor_control build --build-base /home/raspi-earth/project_ws/build/motor_control/build install --record /home/raspi-earth/project_ws/build/motor_control/install.log --single-version-externally-managed install_data

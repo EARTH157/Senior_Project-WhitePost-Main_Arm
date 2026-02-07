@@ -1,0 +1,22 @@
+[6.516s] Invoking command in '/home/raspi-earth/project_ws/src/launch_project': PYTHONPATH=/home/raspi-earth/project_ws/build/launch_project/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/raspi-earth/project_ws/install/launch_project/lib/python3.11/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/launch_project build --build-base /home/raspi-earth/project_ws/build/launch_project/build install --record /home/raspi-earth/project_ws/build/launch_project/install.log --single-version-externally-managed install_data
+[8.098s] running egg_info
+[8.136s] writing ../../build/launch_project/launch_project.egg-info/PKG-INFO
+[8.137s] writing dependency_links to ../../build/launch_project/launch_project.egg-info/dependency_links.txt
+[8.138s] writing entry points to ../../build/launch_project/launch_project.egg-info/entry_points.txt
+[8.138s] writing requirements to ../../build/launch_project/launch_project.egg-info/requires.txt
+[8.139s] writing top-level names to ../../build/launch_project/launch_project.egg-info/top_level.txt
+[8.289s] reading manifest file '../../build/launch_project/launch_project.egg-info/SOURCES.txt'
+[8.289s] adding license file 'LICENSE'
+[8.290s] writing manifest file '../../build/launch_project/launch_project.egg-info/SOURCES.txt'
+[8.290s] running build
+[8.290s] running build_py
+[8.291s] running install
+[8.302s] running install_lib
+[8.375s] running install_data
+[8.375s] running install_egg_info
+[8.514s] removing '/home/raspi-earth/project_ws/install/launch_project/lib/python3.11/site-packages/launch_project-0.0.0-py3.11.egg-info' (and everything under it)
+[8.522s] Copying ../../build/launch_project/launch_project.egg-info to /home/raspi-earth/project_ws/install/launch_project/lib/python3.11/site-packages/launch_project-0.0.0-py3.11.egg-info
+[8.522s] running install_scripts
+[8.801s] Installing launch_project script to /home/raspi-earth/project_ws/install/launch_project/lib/launch_project
+[8.803s] writing list of installed files to '/home/raspi-earth/project_ws/build/launch_project/install.log'
+[8.996s] Invoked command in '/home/raspi-earth/project_ws/src/launch_project' returned '0': PYTHONPATH=/home/raspi-earth/project_ws/build/launch_project/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/raspi-earth/project_ws/install/launch_project/lib/python3.11/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/launch_project build --build-base /home/raspi-earth/project_ws/build/launch_project/build install --record /home/raspi-earth/project_ws/build/launch_project/install.log --single-version-externally-managed install_data

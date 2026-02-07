@@ -1,0 +1,19 @@
+running egg_info
+writing ../../build/launch_project/launch_project.egg-info/PKG-INFO
+writing dependency_links to ../../build/launch_project/launch_project.egg-info/dependency_links.txt
+deleting ../../build/launch_project/launch_project.egg-info/entry_points.txt
+writing requirements to ../../build/launch_project/launch_project.egg-info/requires.txt
+writing top-level names to ../../build/launch_project/launch_project.egg-info/top_level.txt
+reading manifest file '../../build/launch_project/launch_project.egg-info/SOURCES.txt'
+adding license file 'LICENSE'
+writing manifest file '../../build/launch_project/launch_project.egg-info/SOURCES.txt'
+running build
+running build_py
+running install
+running install_lib
+running install_data
+running install_egg_info
+removing '/home/raspi-earth/project_ws/install/launch_project/lib/python3.11/site-packages/launch_project-0.0.0-py3.11.egg-info' (and everything under it)
+Copying ../../build/launch_project/launch_project.egg-info to /home/raspi-earth/project_ws/install/launch_project/lib/python3.11/site-packages/launch_project-0.0.0-py3.11.egg-info
+running install_scripts
+writing list of installed files to '/home/raspi-earth/project_ws/build/launch_project/install.log'

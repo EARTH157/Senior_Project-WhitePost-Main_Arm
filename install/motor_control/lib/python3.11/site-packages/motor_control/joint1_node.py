@@ -5,6 +5,7 @@ from std_msgs.msg import Float32, Bool
 import RPi.GPIO as GPIO
 import smbus2
 import time
+import fcntl
 import sys
 import threading
 import json
@@ -26,22 +27,24 @@ AS5600_ADDR = 0x36
 MUX_CHANNEL = 1
 
 # PID Parameters
-KP = 0.50
-KI = 0.39
-KD = 0.01      
+KP = 0.2
+KI = 0.01
+KD = 0.08    
 
 # Speed Settings
 MIN_DELAY = 0.0003   
-MAX_DELAY = 0.0010   
+MAX_DELAY = 0.0010  
 PULSE_WIDTH = 0.00001 
 
-ANGLE_TOLERANCE = 0.5 
+ANGLE_TOLERANCE = 2.5
 WARN_DIFF_THRESHOLD = 0.5  # ยอมให้คลาดเคลื่อนได้ 0.5 องศา ถ้าเกินนี้ต้อง Homing ใหม่
 STATE_FILE = "joint1_last_state.json" 
 
 class Joint1Driver(Node):
     def __init__(self):
         super().__init__('joint1_driver_node')
+        
+        self.lock_file = open('/tmp/raspi_i2c_lock', 'w+')
         
         self.zero_offset = 0.0
         self.is_homed = False
@@ -279,30 +282,40 @@ class Joint1Driver(Node):
             return raw - self.zero_offset
         return None
 
+    # ---------------------------------------------------------
+    # 📐 SENSOR (UPDATED WITH RETRY LOGIC)
+    # ---------------------------------------------------------
     def read_as5600(self):
+        real_angle = None
+        
+        # [3] เริ่มจองคิว (Lock)
+        fcntl.flock(self.lock_file, fcntl.LOCK_EX)
         try:
-            self.bus.write_byte(MUX_ADDR, 1 << MUX_CHANNEL)
+            # 1. เลือกช่อง MUX (Write)
+            self.bus.write_byte(0x70, 1 << 1)
+                
+            # 2. อ่านค่า Angle High/Low (Read)
             hi = self.bus.read_byte_data(AS5600_ADDR, 0x0E) & 0x0F
             lo = self.bus.read_byte_data(AS5600_ADDR, 0x0F)
             current_raw = (hi << 8) | lo
-            
+                
             # ==========================================
-            # ⚙️ ใส่ค่าที่คุณจดได้ตรงนี้ (ตัวอย่าง)
+            # ⚙️ คำนวณค่ามุม (Logic เดิมของคุณ)
             # ==========================================
-            RAW_AT_0_DEG  = 585.0   # ค่า Raw ตอนตั้งฉาก (แก้เลขนี้ตามที่จด)
-            RAW_AT_90_DEG = 1695.0   # ค่า Raw ตอนกาง 90 องศา (แก้เลขนี้ตามที่จด)
-            
-            # คำนวณหาความชัน (Slope) ว่า 1 องศา ขยับกี่ Raw
-            # สูตร: (y2 - y1) / (x2 - x1)
+            RAW_AT_0_DEG  = 585.0   
+            RAW_AT_90_DEG = 1720.0   
+                
             slope = (90.0 - 0.0) / (RAW_AT_90_DEG - RAW_AT_0_DEG)
-            
-            # คำนวณมุมจริง
-            # สูตร: y = m(x - x1) + y1
             real_angle = slope * (current_raw - RAW_AT_0_DEG) + 0.0
-            
-            return real_angle
-        except:
-            return None
+    
+        except Exception as e:
+            self.get_logger().error(f"I2C Read Error: {e}")
+            pass # หรือ Log error
+        finally:
+            # [4] คืนบัตรคิว (Unlock)
+            fcntl.flock(self.lock_file, fcntl.LOCK_UN)
+
+        return real_angle
 
     def report_status(self):
         angle = self.get_calibrated_angle()

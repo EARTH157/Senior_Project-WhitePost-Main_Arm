@@ -1,0 +1,24 @@
+[13.938s] Invoking command in '/home/raspi-earth/project_ws/src/processor_unit': PYTHONPATH=/home/raspi-earth/project_ws/build/processor_unit/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/processor_unit build --build-base /home/raspi-earth/project_ws/build/processor_unit/build install --record /home/raspi-earth/project_ws/build/processor_unit/install.log --single-version-externally-managed install_data
+[16.232s] running egg_info
+[16.287s] writing ../../build/processor_unit/processor_unit.egg-info/PKG-INFO
+[16.293s] writing dependency_links to ../../build/processor_unit/processor_unit.egg-info/dependency_links.txt
+[16.293s] writing entry points to ../../build/processor_unit/processor_unit.egg-info/entry_points.txt
+[16.294s] writing requirements to ../../build/processor_unit/processor_unit.egg-info/requires.txt
+[16.295s] writing top-level names to ../../build/processor_unit/processor_unit.egg-info/top_level.txt
+[16.443s] reading manifest file '../../build/processor_unit/processor_unit.egg-info/SOURCES.txt'
+[16.445s] adding license file 'LICENSE'
+[16.447s] writing manifest file '../../build/processor_unit/processor_unit.egg-info/SOURCES.txt'
+[16.447s] running build
+[16.447s] running build_py
+[16.449s] running install
+[16.464s] running install_lib
+[16.571s] running install_data
+[16.572s] running install_egg_info
+[16.772s] removing '/home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages/processor_unit-0.0.0-py3.11.egg-info' (and everything under it)
+[16.779s] Copying ../../build/processor_unit/processor_unit.egg-info to /home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages/processor_unit-0.0.0-py3.11.egg-info
+[16.780s] running install_scripts
+[17.040s] Installing main_processor script to /home/raspi-earth/project_ws/install/processor_unit/lib/processor_unit
+[17.046s] Installing test script to /home/raspi-earth/project_ws/install/processor_unit/lib/processor_unit
+[17.049s] Installing test1 script to /home/raspi-earth/project_ws/install/processor_unit/lib/processor_unit
+[17.050s] writing list of installed files to '/home/raspi-earth/project_ws/build/processor_unit/install.log'
+[17.306s] Invoked command in '/home/raspi-earth/project_ws/src/processor_unit' returned '0': PYTHONPATH=/home/raspi-earth/project_ws/build/processor_unit/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/processor_unit build --build-base /home/raspi-earth/project_ws/build/processor_unit/build install --record /home/raspi-earth/project_ws/build/processor_unit/install.log --single-version-externally-managed install_data

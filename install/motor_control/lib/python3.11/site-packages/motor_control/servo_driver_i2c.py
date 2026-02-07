@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 import time
 import math
+import fcntl
 from smbus2 import SMBus
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray, Bool
 
 # ---------- Constants ----------
-PCA_ADDR    = 0x40      # Address ของบอร์ด Servo
-MUX_ADDR    = 0x70      # Address ของ Multiplexer
+PCA_ADDR    = 0x40
+MUX_ADDR    = 0x70
 MODE1       = 0x00
 PRESCALE    = 0xFE
 LED0_ON_L   = 0x06
@@ -17,10 +18,13 @@ class ServoMuxNode(Node):
     def __init__(self):
         super().__init__('servo_mux_node')
 
+        # [1] สร้างไฟล์ Lock (สำคัญ: ต้องสร้างก่อนทำ I2C)
+        self.lock_file = open('/tmp/raspi_i2c_lock', 'w+')
+
         # --- Parameters ---
         self.declare_parameter('i2c_bus', 1)
         self.declare_parameter('frequency', 50.0)
-        self.declare_parameter('default_mux_channel', 0) # ช่อง Mux เริ่มต้น
+        self.declare_parameter('default_mux_channel', 0)
         
         self.bus_num = self.get_parameter('i2c_bus').value
         self.freq = self.get_parameter('frequency').value
@@ -30,36 +34,43 @@ class ServoMuxNode(Node):
         self.i2c = SMBus(self.bus_num)
         self.enabled = True
         self.current_mux = -1
-        # เก็บรายการช่อง Mux ที่เรา Init PCA9685 ไปแล้ว (จะได้ไม่ต้อง Init ซ้ำ)
         self.initialized_muxs = set() 
 
         self.get_logger().info(f"Servo Driver Ready on Bus {self.bus_num}, Default Mux: {self.default_mux}")
         
-        # Init ช่อง Default ก่อนเลย เพื่อความพร้อม
+        # Init ช่อง Default
         self.activate_driver(self.default_mux)
 
         # --- Subscribers ---
-        # รับข้อมูล [mux, ch, angle] หรือ [ch, angle]
         self.create_subscription(Float32MultiArray, '/servo/set_angle', self.cb_set_angle, 10)
         self.create_subscription(Bool, '/servo/enable', self.cb_enable, 10)
 
-    # ---------- Low Level Hardware Control ----------
+    # ---------- Low Level Hardware Control (With Lock) ----------
     def switch_mux(self, channel):
-        """สลับช่อง Multiplexer (0-7)"""
+        """สับราง Mux แบบมี Lock"""
         if channel == self.current_mux:
-            return # อยู่ช่องเดิมไม่ต้องสลับ
+            return
         
+        # 🔒 LOCK
+        fcntl.flock(self.lock_file, fcntl.LOCK_EX)
         try:
-            # เขียนบิตเพื่อเปิดช่อง (1 << channel)
+            # ใช้ write_byte ธรรมดา เพราะเรามี Lock คุ้มกันแล้ว ไม่ต้อง Retry ซับซ้อน
             self.i2c.write_byte(MUX_ADDR, 1 << channel)
             self.current_mux = channel
-            # time.sleep(0.005) # รอแป๊บหนึ่งให้สัญญาณนิ่ง (ถ้าจำเป็น)
         except Exception as e:
-            self.get_logger().error(f"Failed to switch Mux to {channel}: {e}")
+            self.get_logger().error(f"Mux Switch Error: {e}")
+        finally:
+            # 🔓 UNLOCK
+            fcntl.flock(self.lock_file, fcntl.LOCK_UN)
 
     def init_pca9685(self):
-        """ตั้งค่า PCA9685 (Reset & Set Hz)"""
+        """ตั้งค่า PCA9685 แบบมี Lock"""
+        # 🔒 LOCK (ล็อคยาวจนกว่าจะตั้งค่าเสร็จ)
+        fcntl.flock(self.lock_file, fcntl.LOCK_EX)
         try:
+            # ต้องสับ Mux อีกทีให้ชัวร์ว่าอยู่ใน Lock zone
+            self.i2c.write_byte(MUX_ADDR, 1 << self.current_mux)
+            
             # 1. Reset
             self.i2c.write_byte_data(PCA_ADDR, MODE1, 0x00)
             
@@ -68,57 +79,63 @@ class ServoMuxNode(Node):
             prescale = int(round(prescale_val))
             
             oldmode = self.i2c.read_byte_data(PCA_ADDR, MODE1)
-            newmode = (oldmode & 0x7F) | 0x10 # Sleep mode
+            newmode = (oldmode & 0x7F) | 0x10 
             
-            self.i2c.write_byte_data(PCA_ADDR, MODE1, newmode) # Go to sleep
-            self.i2c.write_byte_data(PCA_ADDR, PRESCALE, prescale) # Set prescale
-            self.i2c.write_byte_data(PCA_ADDR, MODE1, oldmode) # Wake up
+            self.i2c.write_byte_data(PCA_ADDR, MODE1, newmode) 
+            self.i2c.write_byte_data(PCA_ADDR, PRESCALE, prescale) 
+            self.i2c.write_byte_data(PCA_ADDR, MODE1, oldmode) 
             
             time.sleep(0.005)
-            self.i2c.write_byte_data(PCA_ADDR, MODE1, oldmode | 0xA1) # Auto increment + Restart
+            self.i2c.write_byte_data(PCA_ADDR, MODE1, oldmode | 0xA1) 
             
             self.get_logger().info(f"Initialized PCA9685 on Mux Ch {self.current_mux}")
         except Exception as e:
             self.get_logger().error(f"Failed to Init PCA: {e}")
+        finally:
+            # 🔓 UNLOCK
+            fcntl.flock(self.lock_file, fcntl.LOCK_UN)
 
     def activate_driver(self, mux_ch):
-        """เตรียมพร้อมใช้งาน Driver บนช่อง Mux นั้นๆ"""
-        self.switch_mux(mux_ch)
+        self.switch_mux(mux_ch) # ตอนนี้ switch_mux มี lock แล้ว ปลอดภัย
         if mux_ch not in self.initialized_muxs:
-            self.init_pca9685()
+            self.init_pca9685() # init ก็มี lock แล้ว ปลอดภัย
             self.initialized_muxs.add(mux_ch)
 
     def set_pwm(self, channel, on, off):
-        """เขียนค่า PWM ลง Register"""
+        """เขียนค่า PWM ลง Register แบบมี Lock"""
+        # 🔒 LOCK
+        fcntl.flock(self.lock_file, fcntl.LOCK_EX)
         try:
+            # --- เริ่มเขตห้ามแทรก ---
+            # ต้องสับ Mux ใหม่ทุกครั้ง เพราะอาจโดน Joint อื่นแย่งไปแล้วระหว่างรอ Lock
+            self.i2c.write_byte(MUX_ADDR, 1 << self.current_mux)
+            
+            # คำนวณค่าและส่งข้อมูล
             base_reg = LED0_ON_L + 4 * channel
             data = [
                 on & 0xFF, (on >> 8) & 0x0F,
                 off & 0xFF, (off >> 8) & 0x0F
             ]
             self.i2c.write_i2c_block_data(PCA_ADDR, base_reg, data)
+            # --- จบเขตห้ามแทรก ---
+
         except Exception as e:
             self.get_logger().error(f"I2C Write Error: {e}")
+        finally:
+            # 🔓 UNLOCK
+            fcntl.flock(self.lock_file, fcntl.LOCK_UN)
 
-    # ---------- Logic & Calculation ----------
+    # ---------- Logic & Callbacks (ส่วนนี้เหมือนเดิม) ----------
     def angle_to_pulse(self, angle):
-        """แปลงมุม (0-180) เป็นค่า Pulse (0-4095)"""
-        # ปรับค่า min/max ตรงนี้ตามสเปค Servo (เช่น 0.5ms - 2.5ms)
-        min_pulse = 150  # ~0.7ms (ที่ 50Hz)
-        max_pulse = 600  # ~2.6ms (ที่ 50Hz)
-        
-        # Clamp มุมให้อยู่ในช่วง 0-180
+        min_pulse = 150 
+        max_pulse = 600 
         angle = max(0.0, min(180.0, angle))
-        
-        # Map linear
         pulse = min_pulse + (angle / 180.0) * (max_pulse - min_pulse)
         return int(pulse)
 
-    # ---------- Callbacks ----------
     def cb_enable(self, msg):
         self.enabled = msg.data
         if not self.enabled:
-            # ถ้า Disable ให้วนปิดทุก Mux ที่เคยเปิด
             self.get_logger().info("Disabling Servos...")
             for m in list(self.initialized_muxs):
                 self.switch_mux(m)
@@ -127,33 +144,23 @@ class ServoMuxNode(Node):
     
     def cb_set_angle(self, msg):
         if not self.enabled: return
-
         data = msg.data
-        
-        # กรณี 1: ส่งมา [ch, angle] -> ใช้ Mux Default
         if len(data) == 2:
             target_mux = self.default_mux
             servo_ch = int(data[0])
             angle = float(data[1])
-            
-        # กรณี 2: ส่งมา [mux, ch, angle] -> ระบุ Mux เอง
         elif len(data) == 3:
             target_mux = int(data[0])
             servo_ch = int(data[1])
             angle = float(data[2])
         else:
-            return # ข้อมูลผิดฟอร์ม
+            return 
 
-        # สลับ Mux และตรวจสอบว่า Init หรือยัง
-        self.activate_driver(target_mux)
-        
-        # คำนวณและสั่งงาน
+        self.activate_driver(target_mux) # เรียกฟังก์ชันที่ปลอดภัยแล้ว
         pulse = self.angle_to_pulse(angle)
-        self.set_pwm(servo_ch, 0, pulse)
-        self.get_logger().info(f"Mux:{target_mux} Ch:{servo_ch} -> {angle:.1f} deg")
+        self.set_pwm(servo_ch, 0, pulse) # เรียกฟังก์ชันที่ปลอดภัยแล้ว
 
     def destroy_node(self):
-        self.i2c.close()
         super().destroy_node()
 
 def main(args=None):
@@ -165,7 +172,9 @@ def main(args=None):
         pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        # เช็คก่อน shutdown เพื่อป้องกัน Error rcl_shutdown already called
+        if rclpy.ok():
+            rclpy.shutdown()
 
 if __name__ == '__main__':
     main()

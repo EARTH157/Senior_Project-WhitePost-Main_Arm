@@ -3,6 +3,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32, Bool
 import RPi.GPIO as GPIO
+import fcntl
 import smbus2
 import time
 import sys
@@ -26,14 +27,15 @@ AS5600_ADDR = 0x36
 MUX_CHANNEL = 2  # Joint 2 Channel
 
 # PID Parameters
-KP = 0.50
-KI = 0.39
-KD = 0.01      
+KP = 0.80   # เพิ่มเพื่อให้ตอบสนองแรงขึ้น (เดิม 0.50)
+KI = 0.20   # ลดลงก่อน กันการแกว่งสะสม (เดิม 0.39)
+KD = 0.01   # เพิ่มแรงต้านการแกว่ง (เดิม 0.01)   
 
 # Speed Settings
-MIN_DELAY = 0.0003   
-MAX_DELAY = 0.0010   
-PULSE_WIDTH = 0.00001 
+# เพิ่ม Delay เพื่อให้หมุนช้าลง แต่แรงบิดจะเยอะขึ้น
+MIN_DELAY = 0.0020   # จากเดิม 0.0003 (เร็วไป) -> ลองปรับเป็น 0.0010 หรือ 0.0020
+MAX_DELAY = 0.0035   # จากเดิม 0.0008 -> ปรับให้กว้างขึ้น
+PULSE_WIDTH = 0.00005 # เพิ่มความกว้าง Pulse นิดหน่อยให้ Driver อ่านทันแน่นอน
 
 ANGLE_TOLERANCE = 2.0
 WARN_DIFF_THRESHOLD = 2.0  
@@ -46,6 +48,9 @@ MAX_ANGLE_LIMIT = 180.0  # องศาสูงสุด (ตำแหน่ง
 class Joint2Driver(Node):
     def __init__(self):
         super().__init__('joint2_driver_node')
+        
+        self.lock_file = open('/tmp/raspi_i2c_lock', 'w+')
+        
         self.zero_offset = 0.0
         self.is_homed = False
         self.current_target = None 
@@ -265,8 +270,13 @@ class Joint2Driver(Node):
         return None
 
     def read_as5600(self):
+        real_angle = None
+        
+        # [3] เริ่มจองคิว (Lock)
+        fcntl.flock(self.lock_file, fcntl.LOCK_EX)
+        
         try:
-            self.bus.write_byte(MUX_ADDR, 1 << MUX_CHANNEL)
+            self.bus.write_byte(0x70, 1 << 2)
             hi = self.bus.read_byte_data(AS5600_ADDR, 0x0E) & 0x0F
             lo = self.bus.read_byte_data(AS5600_ADDR, 0x0F)
             current_raw = (hi << 8) | lo
@@ -301,10 +311,13 @@ class Joint2Driver(Node):
                 slope2 = (P3_ANG - P2_ANG) / (P3_RAW - P2_RAW)
                 real_angle = P2_ANG + slope2 * (current_raw - P2_RAW)
 
-            return real_angle
-
         except Exception as e:
-            return None
+            pass # หรือ Log error
+        finally:
+            # [4] คืนบัตรคิว (Unlock)
+            fcntl.flock(self.lock_file, fcntl.LOCK_UN)
+            
+        return real_angle # ส่งค่าที่คำนวณแล้วกลับไป
 
     def report_status(self):
         angle = self.get_calibrated_angle()
@@ -362,7 +375,7 @@ class Joint2Driver(Node):
             self.get_logger().info(f"✅ Homing Done. Sensor reads: {current_check:.2f}° (Should be approx 180°)")
             
             # 🔥 Set Initial Target to 180 (Hold current position)
-            self.current_target = 180.0 
+            self.current_target = 177.0
             
             self.get_logger().info(f"✅ Homing Done. Limit set to 180°. New Offset: {self.zero_offset:.2f}")
             self.get_logger().info("🚀 Holding Position at 180.0°")

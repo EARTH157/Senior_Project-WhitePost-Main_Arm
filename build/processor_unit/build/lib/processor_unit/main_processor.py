@@ -6,7 +6,7 @@ import math
 # Import message types
 from geometry_msgs.msg import Point
 from sensor_msgs.msg import JointState
-from std_msgs.msg import Float32
+from std_msgs.msg import Float32, Float32MultiArray
 
 class Main_Processor(Node):
     def __init__(self):
@@ -31,13 +31,11 @@ class Main_Processor(Node):
         self.publisher2_ = self.create_publisher(Float32, 'joint2/set_target_angle', 10)
         self.publisher3_ = self.create_publisher(Float32, 'joint3/set_target_angle', 10)
         
+        self.publisher_servo_ = self.create_publisher(Float32MultiArray, '/servo/set_angle', 10)
+        
         self.publisher1_calibrate_ = self.create_publisher(Float32, 'joint1/calibrate', 10)
         self.publisher2_calibrate_ = self.create_publisher(Float32, 'joint2/calibrate', 10)
         self.publisher3_calibrate_ = self.create_publisher(Float32, 'joint3/calibrate', 10)
-
-        #self.subangle1_ = self.create_subscription(Float32, 'joint1/angle', self.angle_callback, 10)
-        #self.subangle2_ = self.create_subscription(Float32, 'joint2/angle', self.angle_callback, 10)
-        #self.subangle3_ = self.create_subscription(Float32, 'joint3/angle', self.angle_callback, 10)
         
         self.get_logger().info('IK Solver Node Started. Waiting for /target_position...')
         
@@ -182,6 +180,27 @@ class Main_Processor(Node):
         msg.name = ['joint1', 'joint2', 'joint3', 'joint4', 'joint5']
         msg.position = joints
         self.publisher_.publish(msg)
+        
+        # 2. Publish Joint 1-3 แยก (Float32)
+        msg_float = Float32()
+        
+        msg_float.data = float(joints[0])
+        self.publisher1_.publish(msg_float) # Joint 1
+
+        msg_float.data = float(joints[1])
+        self.publisher2_.publish(msg_float) # Joint 2
+
+        msg_float.data = float(joints[2])
+        self.publisher3_.publish(msg_float) # Joint 3
+
+        # 3. Publish Joint 4-5 รวมเป็น Array (Float32MultiArray)
+        msg_servo_4 = Float32MultiArray()
+        # ข้อมูลที่จะส่งไป: [Joint4_Angle, Joint5_Angle]
+        msg_servo_4.data = [float(0.0), float(joints[3])] 
+        self.publisher_servo_.publish(msg_servo_4)
+        msg_servo_5 = Float32MultiArray()
+        msg_servo_5.data = [float(1.0), float(joints[4])] 
+        self.publisher_servo_.publish(msg_servo_5)
 
 def main(args=None):
     rclpy.init(args=args)
