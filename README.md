@@ -26,6 +26,8 @@ ros2 run motor_control joint1_node
 
 # Run step and angle
 
+ros2 launch launch_project launch_project.py
+
 ros2 topic pub -1 /stepper_joint1_cmd std_msgs/Int32 "{data: 500}"
 
 ros2 topic pub --once /joint1/calibrate std_msgs/msg/Bool "{data: true}"
@@ -52,3 +54,25 @@ ros2 topic pub /servo/set_angle std_msgs/Float32MultiArray "data: [14, 45.0]" -1
 
 python step1_rrtstar_drive_650610830.py --tracker stanley --rejoin-dist 0.25 --lookahead 0.22 --vmax 0.12 --path-mode mesh3d 
  --path-width-m 0.02   --path-thickness 0.002 --path-z 0.00005 --path-color 0,0,0 --face-now --face-mode tangent --show
+
+# 1. สร้าง Hotspot (ชื่อ Robot-Master รหัส robot12345678) 2.4G
+sudo nmcli device wifi hotspot ifname wlan0 con-name "Robot-Master-2.4G" ssid "Robot-Master-2.4G" password "robot12345678" band bg
+
+# 1. สร้าง Hotspot (ชื่อ Robot-Master รหัส robot12345678) 5.0G
+sudo nmcli device wifi hotspot ifname wlan0 con-name "Robot-Master-5.0G" ssid "Robot-Master-5.0G" password "robot12345678" band a channel 36
+
+# 2. ตั้งค่าให้แชร์เน็ตจากสาย LAN ไปให้ Hotspot นี้ (สำคัญมาก)
+sudo nmcli connection modify "Robot-Master" ipv4.method shared
+
+# 3. สั่งเปิดใช้งานทันที
+sudo nmcli connection up "Robot-Master"
+
+sudo nmcli connection delete "Robot-Link"
+
+# Pi Zero two w
+
+sudo nmcli connection add type wifi con-name "Robot-Master" ssid "Robot-Master" wifi-sec.key-mgmt wpa-psk wifi-sec.psk "robot12345678"
+
+nmcli connection show
+
+ip neigh

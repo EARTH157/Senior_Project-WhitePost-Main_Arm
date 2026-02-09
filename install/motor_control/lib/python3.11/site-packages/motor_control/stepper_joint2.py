@@ -17,7 +17,7 @@ class StepperNode(Node):
         self.declare_parameter('pin_dir', 9)      # DIR+ (DIR- → GND)
         self.declare_parameter('pin_pul', 10)      # PUL+ (PUL- → GND)
         self.declare_parameter('ena_active_high', False)   # บางไดรเวอร์ Enable = LOW
-        self.declare_parameter('step_delay', 0.0008)      # หน่วงต่อครึ่งคาบ (ควบคุมความเร็ว)
+        self.declare_parameter('step_delay', 0.001)      # หน่วงต่อครึ่งคาบ (ควบคุมความเร็ว)
         self.declare_parameter('test_on_start', False)     # ทดสอบหมุนตอนเริ่ม
 
         self.PIN_ENA = int(self.get_parameter('pin_ena').value)

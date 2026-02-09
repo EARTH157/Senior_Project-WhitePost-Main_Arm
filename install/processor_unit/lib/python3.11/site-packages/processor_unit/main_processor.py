@@ -119,18 +119,18 @@ class Main_Processor(Node):
         # --- 6. Joint 4 (Wrist Pitch) ---
         # สมการ: theta2 + theta3 + theta4 = 0 (เพื่อให้ขนานพื้น)
         if -theta3_raw > theta2:
-            theta4_raw = -(theta2 + theta3_raw) + (math.pi / 2)
+            theta4_raw = -(theta2 + theta3_raw) + (math.pi / 2) + (5 * (math.pi / 180))
         elif -theta3_raw == theta2:
             theta4_raw = math.pi / 2
         else:
             theta4_raw = (theta2 + theta3_raw)
-            theta4_raw = (math.pi / 2) - theta4_raw
+            theta4_raw = (math.pi / 2) - theta4_raw + (10 * (math.pi / 180))
         # แปลงให้เป็นบวก (แก้ปัญหาค่าติดลบ -230 -> +130)
         theta4 = normalize_angle_positive(theta4_raw)
 
         # --- 7. Joint 5 ---
         theta1_for_5 = theta1
-        if y >= 0:
+        if y > 0:
             if x >= 0:
                 # เงื่อนไข: ถ้า x เป็นบวก
                 
@@ -142,6 +142,10 @@ class Main_Processor(Node):
                 theta5_raw = (math.pi / 2) - theta1_for_5
                 theta5_phi = math.pi - (theta5_raw + (2*theta1_for_5))
                 theta5_servo = theta5_raw + theta1_for_5 + theta5_phi
+                
+                if x == 0:
+                    theta5_servo = math.pi/2
+                    
                 # แปลงให้เป็นบวก
                 theta5 = normalize_angle_positive(theta5_servo)
                 if not (0 <= math.degrees(theta5) <= 180.1): # เผื่อ Error นิดหน่อย (tolerance)

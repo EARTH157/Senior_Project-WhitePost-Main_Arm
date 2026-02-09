@@ -27,17 +27,17 @@ AS5600_ADDR = 0x36
 MUX_CHANNEL = 3
 
 # PID Parameters
-KP = 0.1
-KI = 0.01
-KD = 0.09
+KP = 1.0
+KI = 0.2
+KD = 0.1
 
 # Speed Settings
 MIN_DELAY = 0.0005   
-MAX_DELAY = 0.0010   
-PULSE_WIDTH = 0.00001 
+MAX_DELAY = 0.001   
+PULSE_WIDTH = 0.00005 
 
-ANGLE_TOLERANCE = 3.5  # ถ้าอยู่ในนี้ถือว่าเข้าที่แล้ว 
-WARN_DIFF_THRESHOLD = 1.0  # ยอมให้คลาดเคลื่อนได้ 0.5 องศา ถ้าเกินนี้ต้อง Homing ใหม่
+ANGLE_TOLERANCE = 2.5  # ถ้าอยู่ในนี้ถือว่าเข้าที่แล้ว 
+WARN_DIFF_THRESHOLD = 0.5  # ยอมให้คลาดเคลื่อนได้ 0.5 องศา ถ้าเกินนี้ต้อง Homing ใหม่
 STATE_FILE = "joint3_last_state.json" 
 
 class Joint3Driver(Node):
@@ -300,10 +300,10 @@ class Joint3Driver(Node):
             # P1: Raw 325  = 8.0 องศา
             # P2: Raw 2266 = 90.0 องศา
             
-            P1_RAW = 325.0
+            P1_RAW = 313.0
             P1_ANG = 8.0
             
-            P2_RAW = 2279.0
+            P2_RAW = 2300.0
             P2_ANG = 180.0
             
             # หาความชัน (Slope)
@@ -352,8 +352,9 @@ class Joint3Driver(Node):
             self.step_pulse_single(-1, HOMING_DELAY)
             
         # 3. ถอยออก
+        time.sleep(1.0)
         for _ in range(500): self.step_pulse_single(1, HOMING_DELAY)
-        time.sleep(0.5)
+        time.sleep(1.0)
         
         # 4. วิ่งเข้าหาช้าๆ
         while GPIO.input(PIN_LIMIT) == 1: 

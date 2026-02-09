@@ -27,18 +27,18 @@ AS5600_ADDR = 0x36
 MUX_CHANNEL = 2  # Joint 2 Channel
 
 # PID Parameters
-KP = 0.80   # เพิ่มเพื่อให้ตอบสนองแรงขึ้น (เดิม 0.50)
+KP = 0.8   # เพิ่มเพื่อให้ตอบสนองแรงขึ้น (เดิม 0.50)
 KI = 0.20   # ลดลงก่อน กันการแกว่งสะสม (เดิม 0.39)
 KD = 0.01   # เพิ่มแรงต้านการแกว่ง (เดิม 0.01)   
 
 # Speed Settings
 # เพิ่ม Delay เพื่อให้หมุนช้าลง แต่แรงบิดจะเยอะขึ้น
-MIN_DELAY = 0.0020   # จากเดิม 0.0003 (เร็วไป) -> ลองปรับเป็น 0.0010 หรือ 0.0020
-MAX_DELAY = 0.0035   # จากเดิม 0.0008 -> ปรับให้กว้างขึ้น
+MIN_DELAY = 0.0005   # จากเดิม 0.0003 (เร็วไป) -> ลองปรับเป็น 0.0010 หรือ 0.0020
+MAX_DELAY = 0.001   # จากเดิม 0.0008 -> ปรับให้กว้างขึ้น
 PULSE_WIDTH = 0.00005 # เพิ่มความกว้าง Pulse นิดหน่อยให้ Driver อ่านทันแน่นอน
 
 ANGLE_TOLERANCE = 2.0
-WARN_DIFF_THRESHOLD = 2.0  
+WARN_DIFF_THRESHOLD = 0.5  
 STATE_FILE = "joint2_last_state.json" 
 
 # 📐 LIMIT SETTINGS
@@ -345,17 +345,20 @@ class Joint2Driver(Node):
         
         # 1. ถ้าชนอยู่แล้ว ให้ถอยออกมา (ทิศ -1)
         if GPIO.input(PIN_LIMIT) == 0:
+            time.sleep(1)
             self.get_logger().info("   - Already at limit, backing off...")
             for _ in range(500): self.step_pulse_single(-1, HOMING_DELAY)
             
         # 2. วิ่งเข้าหา (ทิศ 1)
         self.get_logger().info("   - Finding limit...")
+        time.sleep(1)
         while GPIO.input(PIN_LIMIT) == 1: 
             self.step_pulse_single(1, HOMING_DELAY)
             
         # 3. ถอยออกนิดนึง (ทิศ -1)
+        time.sleep(1.0)
         for _ in range(500): self.step_pulse_single(-1, HOMING_DELAY)
-        time.sleep(0.5)
+        time.sleep(1.0)
         
         # 4. วิ่งเข้าหาช้าๆ อีกรอบ (ทิศ 1)
         self.get_logger().info("   - Precision check...")

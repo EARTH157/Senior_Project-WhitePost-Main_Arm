@@ -27,16 +27,16 @@ AS5600_ADDR = 0x36
 MUX_CHANNEL = 1
 
 # PID Parameters
-KP = 0.2
-KI = 0.01
-KD = 0.08    
+KP = 1.0
+KI = 0.1
+KD = 0.01    
 
 # Speed Settings
-MIN_DELAY = 0.0003   
-MAX_DELAY = 0.0010  
-PULSE_WIDTH = 0.00001 
+MIN_DELAY = 0.0005   
+MAX_DELAY = 0.001  
+PULSE_WIDTH = 0.00005
 
-ANGLE_TOLERANCE = 2.5
+ANGLE_TOLERANCE = 0.15
 WARN_DIFF_THRESHOLD = 0.5  # ยอมให้คลาดเคลื่อนได้ 0.5 องศา ถ้าเกินนี้ต้อง Homing ใหม่
 STATE_FILE = "joint1_last_state.json" 
 
@@ -348,6 +348,7 @@ class Joint1Driver(Node):
             self.step_pulse_single(-1, HOMING_DELAY)
             
         # 3. ถอยออก
+        time.sleep(0.5)
         for _ in range(500): self.step_pulse_single(1, HOMING_DELAY)
         time.sleep(0.5)
         
