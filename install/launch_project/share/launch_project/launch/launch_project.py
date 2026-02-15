@@ -29,4 +29,9 @@ def generate_launch_description():
             executable='main_processor',
             name='main_processor',
         ),
+        launch_ros.actions.Node(
+            package='processor_unit',
+            executable='steam_cam',
+            name='steam_cam',
+        ),
     ])

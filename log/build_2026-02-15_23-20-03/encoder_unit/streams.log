@@ -1,0 +1,24 @@
+[16.407s] Invoking command in '/home/raspi-earth/project_ws/build/encoder_unit': PYTHONPATH=/home/raspi-earth/project_ws/build/encoder_unit/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/raspi-earth/project_ws/install/encoder_unit/lib/python3.11/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/raspi-earth/project_ws/build/encoder_unit/build --no-deps symlink_data --force
+[20.580s] running develop
+[22.659s] running egg_info
+[22.798s] writing encoder_unit.egg-info/PKG-INFO
+[22.806s] writing dependency_links to encoder_unit.egg-info/dependency_links.txt
+[22.806s] writing entry points to encoder_unit.egg-info/entry_points.txt
+[22.810s] writing requirements to encoder_unit.egg-info/requires.txt
+[22.810s] writing top-level names to encoder_unit.egg-info/top_level.txt
+[23.058s] reading manifest file 'encoder_unit.egg-info/SOURCES.txt'
+[23.058s] writing manifest file 'encoder_unit.egg-info/SOURCES.txt'
+[23.172s] running build_ext
+[23.176s] Creating /home/raspi-earth/project_ws/install/encoder_unit/lib/python3.11/site-packages/encoder-unit.egg-link (link to .)
+[23.177s] Installing as5600_1 script to /home/raspi-earth/project_ws/install/encoder_unit/lib/encoder_unit
+[23.177s] Installing as5600_2 script to /home/raspi-earth/project_ws/install/encoder_unit/lib/encoder_unit
+[23.177s] Installing as5600_3 script to /home/raspi-earth/project_ws/install/encoder_unit/lib/encoder_unit
+[23.177s] Installing as5600_4 script to /home/raspi-earth/project_ws/install/encoder_unit/lib/encoder_unit
+[23.177s] Installing as5600_5 script to /home/raspi-earth/project_ws/install/encoder_unit/lib/encoder_unit
+[23.178s] Installing limit script to /home/raspi-earth/project_ws/install/encoder_unit/lib/encoder_unit
+[23.178s] 
+[23.178s] Installed /home/raspi-earth/project_ws/build/encoder_unit
+[23.178s] running symlink_data
+[23.178s] symbolically linking /home/raspi-earth/project_ws/build/encoder_unit/resource/encoder_unit -> /home/raspi-earth/project_ws/install/encoder_unit/share/ament_index/resource_index/packages
+[23.178s] symbolically linking /home/raspi-earth/project_ws/build/encoder_unit/package.xml -> /home/raspi-earth/project_ws/install/encoder_unit/share/encoder_unit
+[23.427s] Invoked command in '/home/raspi-earth/project_ws/build/encoder_unit' returned '0': PYTHONPATH=/home/raspi-earth/project_ws/build/encoder_unit/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/raspi-earth/project_ws/install/encoder_unit/lib/python3.11/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/raspi-earth/project_ws/build/encoder_unit/build --no-deps symlink_data --force

@@ -13,6 +13,7 @@ processor_unit/__init__.py
 processor_unit/camera_back.py
 processor_unit/camera_front.py
 processor_unit/main_processor.py
+processor_unit/steam_opencv.py
 processor_unit/test.py
 processor_unit/test1.py
 processor_unit/uart_zero_two_w.py

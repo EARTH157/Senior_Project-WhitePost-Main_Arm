@@ -1,5 +1,0 @@
-  File "/home/raspi-earth/project_ws/install/motor_control/lib/python3.11/site-packages/motor_control/joint1_node.py", line 38
-    ANGLE_TOLERANCE = 0.5  # ถ้ามุมใกล้เคียงเป้าหมายขนาดนี้ ให้ถือว่าโอเค
-                          ^
-SyntaxError: invalid non-printable character U+00A0
-

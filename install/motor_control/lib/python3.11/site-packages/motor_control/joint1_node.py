@@ -32,11 +32,9 @@ KI = 0.1
 KD = 0.01    
 
 # Speed Settings
-MIN_DELAY = 0.0005   
-MAX_DELAY = 0.001  
 PULSE_WIDTH = 0.00005
 
-ANGLE_TOLERANCE = 0.15
+ANGLE_TOLERANCE = 1.0
 WARN_DIFF_THRESHOLD = 0.5  # ยอมให้คลาดเคลื่อนได้ 0.5 องศา ถ้าเกินนี้ต้อง Homing ใหม่
 STATE_FILE = "joint1_last_state.json" 
 
@@ -53,12 +51,13 @@ class Joint1Driver(Node):
         # PID Variables
         self.prev_error = 0.0
         self.integral = 0.0
-        self.last_pid_time = time.time()
+        self.last_pid_time = time.time()  # 🔥 เติมบรรทัดนี้กลับเข้ามาครับ!
 
         # Setup GPIO
         GPIO.setmode(GPIO.BCM)
         GPIO.setwarnings(False)
-        GPIO.setup(PIN_ENA, GPIO.OUT, initial=GPIO.HIGH) # ปิดไว้ก่อน
+        # 🔥 แก้เป็น LOW เพื่อล็อกมอเตอร์ทันทีที่เปิด ป้องกันการเคลื่อนที่เอง
+        GPIO.setup(PIN_ENA, GPIO.OUT, initial=GPIO.LOW) 
         GPIO.setup(PIN_DIR, GPIO.OUT, initial=GPIO.LOW)
         GPIO.setup(PIN_PUL, GPIO.OUT, initial=GPIO.LOW)
         GPIO.setup(PIN_LIMIT, GPIO.IN, pull_up_down=GPIO.PUD_UP)
@@ -76,6 +75,7 @@ class Joint1Driver(Node):
         self.create_subscription(Float32, 'joint1/set_target_angle', self.target_callback, 10)
         self.create_subscription(Bool, 'joint1/calibrate', self.calibrate_callback, 10)
         self.angle_pub = self.create_publisher(Float32, 'joint1/angle', 10)
+        self.calibration_pub = self.create_publisher(Bool, 'joint1/calibrated', 10)
         self.create_timer(0.5, self.report_status)
 
         # -----------------------------------------------------
@@ -83,10 +83,17 @@ class Joint1Driver(Node):
         # -----------------------------------------------------
         self.check_initial_position()
 
-        # เริ่ม Thread ควบคุม
+        # ตัวแปรควบคุมความเร็วและทิศทางแบบใหม่
+        self.target_hz = 0.0
+        self.current_hz = 0.0
+        self.motor_direction = 1
+        
+        # เริ่ม Thread ควบคุมแยกส่วน (Motor และ PID)
         self.running = True
-        self.worker_thread = threading.Thread(target=self.control_loop_worker, daemon=True)
-        self.worker_thread.start()
+        self.motor_thread = threading.Thread(target=self.motor_worker, daemon=True)
+        self.pid_thread = threading.Thread(target=self.pid_worker, daemon=True)
+        self.motor_thread.start()
+        self.pid_thread.start()
 
         if not self.is_homed:
             self.get_logger().info("⏳ Waiting for calibration command... (Topic: /joint1/calibrate)")
@@ -95,11 +102,6 @@ class Joint1Driver(Node):
     # 💾 STATE CHECKING
     # ---------------------------------------------------------
     def check_initial_position(self):
-        """
-        เช็คตำแหน่ง:
-        - ถ้าตำแหน่งเดิมปลอดภัย -> Load ค่า Offset -> is_homed = True เลย
-        - ถ้าตำแหน่งเปลี่ยน -> is_homed = False -> รอ Calibrate
-        """
         current_raw = self.read_as5600()
         if current_raw is None: return
 
@@ -108,46 +110,40 @@ class Joint1Driver(Node):
                 with open(STATE_FILE, 'r') as f:
                     data = json.load(f)
                     last_raw = data.get('last_raw_angle', -1)
-                    saved_offset = data.get('zero_offset', 0.0) # โหลดค่า Offset เดิมด้วย
+                    saved_offset = data.get('zero_offset', 0.0) 
                 
                 if last_raw != -1:
-                    # คำนวณความต่าง
                     diff = abs(current_raw - last_raw)
                     if diff > 180: diff = 360 - diff
 
                     if diff <= WARN_DIFF_THRESHOLD:
-                        # ✅ เคสปลอดภัย: มุมไม่เปลี่ยน
                         self.get_logger().info(f"✅ Position Verified (Diff: {diff:.2f}°). Resuming...")
-                        
-                        # 1. คืนค่า Zero Offset เดิม
                         self.zero_offset = saved_offset
-                        
-                        # 2. ตั้งค่าสถานะเป็น Homed แล้ว
                         self.is_homed = True
                         
-                        # 3. ตั้ง Target เป็นมุมปัจจุบันทันที (ให้ Motor Hold ตำแหน่งนี้)
                         current_angle = current_raw - self.zero_offset
                         self.current_target = current_angle
                         
-                        # 4. จ่ายไฟเข้ามอเตอร์
                         self.enable_motor(True)
                         self.get_logger().info(f"🚀 System READY! Holding at {current_angle:.2f}°")
                         
                     else:
-                        # ❌ เคสอันตราย: มุมเปลี่ยนไปเยอะ (อาจมีคนไปหมุนตอนปิดเครื่อง)
                         self.get_logger().warn(f"⚠️ MOVED WHILE OFF! (Diff: {diff:.2f}°)")
                         self.get_logger().warn("   Safety Lock: PLEASE RE-CALIBRATE.")
-                        self.is_homed = False # บังคับ Calibrate ใหม่
+                        calib_msg = Bool()
+                        calib_msg.data = False
+                        self.calibration_pub.publish(calib_msg)
+                        self.is_homed = False
+                        # 🔥 เพิ่มให้ล็อกมอเตอร์ไว้กันเคลื่อนที่เพิ่ม
+                        self.enable_motor(True) 
             except Exception as e:
                 self.get_logger().error(f"Failed to load state: {e}")
         else:
             self.get_logger().info("ℹ️ No previous state file found. Calibration required.")
 
     def save_current_state(self):
-        """บันทึกค่า Sensor และ Offset ก่อนปิดโปรแกรม"""
         current_raw = self.read_as5600()
         if current_raw is not None:
-            # บันทึกทั้ง Raw Angle และ Zero Offset
             data = {
                 'last_raw_angle': current_raw,
                 'zero_offset': self.zero_offset
@@ -180,13 +176,12 @@ class Joint1Driver(Node):
         self.current_target = msg.data
         self.get_logger().info(f"🎯 Target Updated: {self.current_target:.2f}")
         
-        # Reset PID parameters to prevent jump
         self.prev_error = 0.0
         self.integral = 0.0
         self.last_pid_time = time.time()
 
     # ---------------------------------------------------------
-    # ⏱️ CONTROL LOOP (แก้ไขเพิ่ม Safety)
+    # ⏱️ CONTROL LOOP (แก้ไขเพิ่ม Safety + Soft Start + Anti-Windup)
     # ---------------------------------------------------------
     def precise_delay(self, duration):
         start = time.perf_counter()
@@ -202,30 +197,66 @@ class Joint1Driver(Node):
         if wait_time < 0: wait_time = 0
         self.precise_delay(wait_time)
 
-    def control_loop_worker(self):
+    # ---------------------------------------------------------
+    # 🏎️ MOTOR WORKER: รับหน้าที่หมุนมอเตอร์อย่างเดียวให้จังหวะแม่นยำ
+    # ---------------------------------------------------------
+    def motor_worker(self):
         while self.running and rclpy.ok():
-            # ถ้ายังไม่ Homed และไม่มี Target ให้รอ
+            hz = self.current_hz
+            
+            # หากความถี่ต่ำมาก ให้ถือว่าหยุด (ประหยัด CPU)
+            if hz < 50.0:
+                time.sleep(0.005)
+                continue
+                
+            # 🛡️ SAFETY CHECK: หยุดถ้าชน Limit Switch ในทิศวิ่งเข้า (-1)
+            if GPIO.input(PIN_LIMIT) == 0 and self.motor_direction == -1:
+                time.sleep(0.005)
+                continue
+
+            # แปลงความถี่ (Hz) เป็น Delay
+            delay = 1.0 / hz
+            self.step_pulse_single(self.motor_direction, delay)
+
+    # ---------------------------------------------------------
+    # 🧠 PID WORKER: คำนวณ Error และสร้างความเร่ง (Acceleration)
+    # ---------------------------------------------------------
+    def pid_worker(self):
+        # --- ปรับจูนใหม่: เน้นแรงบิดสูง ช้าแต่มั่นคง ---
+        MAX_HZ = 600.0        # ⬇️ ลดลงเยอะมาก! (อย่าเพิ่งเกิน 800) เพื่อให้มีแรงบิดยกแขน
+        MIN_HZ = 50.0         # ⬇️ ออกตัวช้าๆ ให้แรงบิดช่วงเริ่มต้น (Holding Torque) ทำงานเต็มที่
+        ACCEL_RATE = 40.0     # ⬇️ ค่อยๆ เร่งความเร็ว (Soft Start) ป้องกันการกระชากจนหลุดสเต็ป
+        SPEED_MULTIPLIER = 20.0 # ⬇️ ลดความดุดันของ PID ลง
+        
+        while self.running and rclpy.ok():
+            time.sleep(0.02) # รันที่ประมาณ 50Hz (ทุกๆ 20ms)
+
             if not self.is_homed or self.current_target is None:
-                time.sleep(0.1)
+                self.target_hz = 0.0
+                self.current_hz = 0.0
                 continue
 
             current_angle = self.get_calibrated_angle()
-            if current_angle is None: 
-                time.sleep(0.01); continue
+            if current_angle is None: continue
 
             error = self.current_target - current_angle
-            
-            # Deadband
+
+            # Deadband (ถึงเป้าหมายแล้ว)
             if abs(error) <= ANGLE_TOLERANCE:
                 self.integral = 0.0
                 self.prev_error = 0.0
-                time.sleep(0.01)
+                self.target_hz = 0.0
+                
+                # ค่อยๆ ลดความเร็วลงจนหยุด (Deceleration) ป้องกันกระตุกตอนจบ
+                if self.current_hz > 0:
+                    self.current_hz -= ACCEL_RATE * 2 
+                    if self.current_hz < 0: self.current_hz = 0.0
                 continue 
 
             # PID Logic
             now = time.time()
             dt = now - self.last_pid_time
-            if dt == 0: dt = 0.001
+            if dt <= 0: dt = 0.02
 
             self.integral += error * dt
             derivative = (error - self.prev_error) / dt
@@ -234,44 +265,23 @@ class Joint1Driver(Node):
             self.prev_error = error
             self.last_pid_time = now
 
-            direction = 1 if pid_output > 0 else -1
+            # กำหนดทิศทางมอเตอร์
+            self.motor_direction = 1 if pid_output > 0 else -1
+            
+            # แปลง PID Output เป็นเป้าหมายความถี่ (Target Hz)
             speed_mag = abs(pid_output)
+            mapped_hz = MIN_HZ + (speed_mag * SPEED_MULTIPLIER) 
+            if mapped_hz > MAX_HZ: mapped_hz = MAX_HZ
             
-            if speed_mag > 0.01:
-                calc_delay = MAX_DELAY - (speed_mag / 500.0)
-            else:
-                calc_delay = MAX_DELAY
-            
-            if calc_delay < MIN_DELAY: calc_delay = MIN_DELAY
-            if calc_delay > MAX_DELAY: calc_delay = MAX_DELAY
+            self.target_hz = mapped_hz
 
-            # ------------------------------------------------------------------
-            # 🛡️ SAFETY CHECK: LIMIT SWITCH PROTECTION
-            # ------------------------------------------------------------------
-            # สมมติฐาน: Homing วิ่งทิศ -1 เข้าหา Limit (ตามฟังก์ชัน homing sequence)
-            # ดังนั้นถ้าชน Limit:
-            #   - ห้ามวิ่ง -1 (เข้าหาสวิตช์)
-            #   - ยอมให้วิ่ง +1 (ถอยออกจากสวิตช์)
-            # ------------------------------------------------------------------
-            if GPIO.input(PIN_LIMIT) == 0:  # 0 คือถูกกด (NC/NO แล้วแต่วงจร แต่ใน homing ใช้ 0=ชน)
-                if direction == -1: 
-                    # 🛑 กรณีพยายามวิ่งเข้าหา Limit ทั้งที่ชนอยู่ -> หยุดทันที!
-                    self.integral = 0.0   # Reset Integral ไม่ให้แรงสะสม
-                    self.prev_error = 0.0
-                    
-                    # Log เตือน (แบบไม่รัวเกินไป)
-                    if int(time.time()) % 2 == 0: 
-                        print(f"🛑 LIMIT HIT! Blocking MOVE IN (-). Angle: {current_angle:.2f}", end='\r')
-                    
-                    time.sleep(0.01)
-                    continue  # 🚫 ข้ามการสั่ง Pulse รอบนี้ไปเลย
-                
-                else:
-                    # ✅ กรณีวิ่ง +1 (ถอยออก) -> ยอมให้ทำได้
-                    pass 
-
-            # สั่ง Pulse เมื่อผ่านเงื่อนไขความปลอดภัย
-            self.step_pulse_single(direction, calc_delay)
+            # 🚀 ทำ Acceleration Ramp: ปรับความเร็วปัจจุบันให้เข้าหาเป้าหมายอย่างนุ่มนวล
+            if self.current_hz < self.target_hz:
+                self.current_hz += ACCEL_RATE
+                if self.current_hz > self.target_hz: self.current_hz = self.target_hz
+            elif self.current_hz > self.target_hz:
+                self.current_hz -= ACCEL_RATE
+                if self.current_hz < self.target_hz: self.current_hz = self.target_hz
 
     # ---------------------------------------------------------
     # 📐 SENSOR
@@ -282,26 +292,16 @@ class Joint1Driver(Node):
             return raw - self.zero_offset
         return None
 
-    # ---------------------------------------------------------
-    # 📐 SENSOR (UPDATED WITH RETRY LOGIC)
-    # ---------------------------------------------------------
     def read_as5600(self):
         real_angle = None
         
-        # [3] เริ่มจองคิว (Lock)
         fcntl.flock(self.lock_file, fcntl.LOCK_EX)
         try:
-            # 1. เลือกช่อง MUX (Write)
             self.bus.write_byte(0x70, 1 << 1)
-                
-            # 2. อ่านค่า Angle High/Low (Read)
             hi = self.bus.read_byte_data(AS5600_ADDR, 0x0E) & 0x0F
             lo = self.bus.read_byte_data(AS5600_ADDR, 0x0F)
             current_raw = (hi << 8) | lo
                 
-            # ==========================================
-            # ⚙️ คำนวณค่ามุม (Logic เดิมของคุณ)
-            # ==========================================
             RAW_AT_0_DEG  = 585.0   
             RAW_AT_90_DEG = 1720.0   
                 
@@ -309,15 +309,17 @@ class Joint1Driver(Node):
             real_angle = slope * (current_raw - RAW_AT_0_DEG) + 0.0
     
         except Exception as e:
-            self.get_logger().error(f"I2C Read Error: {e}")
-            pass # หรือ Log error
+            pass # ซ่อน log I2C แบบจุกจิก
         finally:
-            # [4] คืนบัตรคิว (Unlock)
             fcntl.flock(self.lock_file, fcntl.LOCK_UN)
 
         return real_angle
 
     def report_status(self):
+        cal_msg = Bool()
+        cal_msg.data = self.is_homed
+        self.calibration_pub.publish(cal_msg)
+
         angle = self.get_calibrated_angle()
         if angle is not None and self.is_homed:
             msg = Float32()
@@ -325,12 +327,13 @@ class Joint1Driver(Node):
             self.angle_pub.publish(msg)
             tgt_str = f"{self.current_target:.2f}" if self.current_target is not None else "None"
             
-            # เพิ่มสถานะ Limit ใน Print
             lim_status = "🛑HIT" if GPIO.input(PIN_LIMIT) == 0 else "OK"
             print(f"✅ Run | Tgt: {tgt_str} | Cur: {angle:.2f} | Lim: {lim_status}   ", end='\r')
             
         elif not self.is_homed:
-            print(f"⚠️ Wait Calib | Raw: {self.read_as5600():.2f} ", end='\r')
+            raw = self.read_as5600()
+            if raw is not None:
+                print(f"⚠️ Wait Calib | Raw: {raw:.2f} ", end='\r')
 
     # ---------------------------------------------------------
     # 🏠 HOMING & CLEANUP
@@ -339,24 +342,19 @@ class Joint1Driver(Node):
         self.get_logger().info("🏠 Homing Started...")
         HOMING_DELAY = 0.001 
         
-        # 1. ถอยถ้าชน
         if GPIO.input(PIN_LIMIT) == 0:
             for _ in range(500): self.step_pulse_single(1, HOMING_DELAY)
             
-        # 2. วิ่งเข้าหา
         while GPIO.input(PIN_LIMIT) == 1: 
             self.step_pulse_single(-1, HOMING_DELAY)
             
-        # 3. ถอยออก
         time.sleep(0.5)
         for _ in range(500): self.step_pulse_single(1, HOMING_DELAY)
         time.sleep(0.5)
         
-        # 4. วิ่งเข้าหาช้าๆ
         while GPIO.input(PIN_LIMIT) == 1: 
             self.step_pulse_single(-1, HOMING_DELAY * 2)
             
-        # 5. Set Zero
         val = self.read_as5600()
         if val: 
             self.zero_offset = val
@@ -373,9 +371,17 @@ class Joint1Driver(Node):
         self.get_logger().info("🛑 Shutting down...")
         self.save_current_state()
         
+        # ส่งสัญญาณให้ Threads ทั้งหมดหยุดทำงาน
         self.running = False
-        if hasattr(self, 'worker_thread'):
-            self.worker_thread.join()
+        
+        # รอให้ Motor Thread ปิดตัวอย่างสมบูรณ์
+        if hasattr(self, 'motor_thread'):
+            self.motor_thread.join()
+            
+        # รอให้ PID Thread ปิดตัวอย่างสมบูรณ์
+        if hasattr(self, 'pid_thread'):
+            self.pid_thread.join()
+            
         self.enable_motor(False)
         GPIO.cleanup()
         super().destroy_node()

@@ -1,0 +1,25 @@
+[17.420s] Invoking command in '/home/raspi-earth/project_ws/build/motor_control': PYTHONPATH=/home/raspi-earth/project_ws/build/motor_control/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/raspi-earth/project_ws/install/motor_control/lib/python3.11/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/raspi-earth/project_ws/build/motor_control/build --no-deps symlink_data --force
+[21.504s] running develop
+[23.576s] running egg_info
+[23.674s] writing motor_control.egg-info/PKG-INFO
+[23.681s] writing dependency_links to motor_control.egg-info/dependency_links.txt
+[23.682s] writing entry points to motor_control.egg-info/entry_points.txt
+[23.682s] writing requirements to motor_control.egg-info/requires.txt
+[23.685s] writing top-level names to motor_control.egg-info/top_level.txt
+[23.864s] reading manifest file 'motor_control.egg-info/SOURCES.txt'
+[23.865s] writing manifest file 'motor_control.egg-info/SOURCES.txt'
+[23.976s] running build_ext
+[23.978s] Creating /home/raspi-earth/project_ws/install/motor_control/lib/python3.11/site-packages/motor-control.egg-link (link to .)
+[23.978s] Installing joint1_node script to /home/raspi-earth/project_ws/install/motor_control/lib/motor_control
+[23.979s] Installing joint2_node script to /home/raspi-earth/project_ws/install/motor_control/lib/motor_control
+[23.979s] Installing joint3_node script to /home/raspi-earth/project_ws/install/motor_control/lib/motor_control
+[23.980s] Installing servodrive script to /home/raspi-earth/project_ws/install/motor_control/lib/motor_control
+[23.981s] Installing stepmotor1 script to /home/raspi-earth/project_ws/install/motor_control/lib/motor_control
+[23.981s] Installing stepmotor2 script to /home/raspi-earth/project_ws/install/motor_control/lib/motor_control
+[23.981s] Installing stepmotor3 script to /home/raspi-earth/project_ws/install/motor_control/lib/motor_control
+[23.984s] 
+[23.984s] Installed /home/raspi-earth/project_ws/build/motor_control
+[23.985s] running symlink_data
+[23.985s] symbolically linking /home/raspi-earth/project_ws/build/motor_control/resource/motor_control -> /home/raspi-earth/project_ws/install/motor_control/share/ament_index/resource_index/packages
+[23.985s] symbolically linking /home/raspi-earth/project_ws/build/motor_control/package.xml -> /home/raspi-earth/project_ws/install/motor_control/share/motor_control
+[24.219s] Invoked command in '/home/raspi-earth/project_ws/build/motor_control' returned '0': PYTHONPATH=/home/raspi-earth/project_ws/build/motor_control/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/raspi-earth/project_ws/install/motor_control/lib/python3.11/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/raspi-earth/project_ws/build/motor_control/build --no-deps symlink_data --force

@@ -1,0 +1,23 @@
+[16.577s] Invoking command in '/home/raspi-earth/project_ws/build/processor_unit': PYTHONPATH=/home/raspi-earth/project_ws/build/processor_unit/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/raspi-earth/project_ws/build/processor_unit/build --no-deps symlink_data --force
+[20.822s] running develop
+[22.678s] running egg_info
+[22.886s] writing processor_unit.egg-info/PKG-INFO
+[22.886s] writing dependency_links to processor_unit.egg-info/dependency_links.txt
+[22.887s] writing entry points to processor_unit.egg-info/entry_points.txt
+[22.892s] writing requirements to processor_unit.egg-info/requires.txt
+[22.894s] writing top-level names to processor_unit.egg-info/top_level.txt
+[23.263s] reading manifest file 'processor_unit.egg-info/SOURCES.txt'
+[23.265s] writing manifest file 'processor_unit.egg-info/SOURCES.txt'
+[23.372s] running build_ext
+[23.372s] Creating /home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages/processor-unit.egg-link (link to .)
+[23.376s] Installing main_processor script to /home/raspi-earth/project_ws/install/processor_unit/lib/processor_unit
+[23.376s] Installing steam_cam script to /home/raspi-earth/project_ws/install/processor_unit/lib/processor_unit
+[23.376s] Installing test script to /home/raspi-earth/project_ws/install/processor_unit/lib/processor_unit
+[23.376s] Installing test1 script to /home/raspi-earth/project_ws/install/processor_unit/lib/processor_unit
+[23.376s] Installing uart_zero_two_w script to /home/raspi-earth/project_ws/install/processor_unit/lib/processor_unit
+[23.376s] 
+[23.376s] Installed /home/raspi-earth/project_ws/build/processor_unit
+[23.377s] running symlink_data
+[23.378s] symbolically linking /home/raspi-earth/project_ws/build/processor_unit/resource/processor_unit -> /home/raspi-earth/project_ws/install/processor_unit/share/ament_index/resource_index/packages
+[23.378s] symbolically linking /home/raspi-earth/project_ws/build/processor_unit/package.xml -> /home/raspi-earth/project_ws/install/processor_unit/share/processor_unit
+[23.618s] Invoked command in '/home/raspi-earth/project_ws/build/processor_unit' returned '0': PYTHONPATH=/home/raspi-earth/project_ws/build/processor_unit/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/raspi-earth/project_ws/build/processor_unit/build --no-deps symlink_data --force

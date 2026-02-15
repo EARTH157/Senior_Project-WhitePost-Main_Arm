@@ -7,6 +7,8 @@ Password: spacebar and enter
 # remote Raspberry Pi Zero 2W in End effector
 
 ssh raspi-zero-two-w-earth@172.20.10.3
+ssh raspi-zero-two-w-earth@10.42.0.142
+ssh-keygen -R 10.42.0.142
 
 Password: spacebar and enter
 
@@ -37,6 +39,10 @@ ros2 topic pub --once /joint1/set_target_angle std_msgs/msg/Float32 "{data: 45.0
 ros2 topic pub /servo/set_angle std_msgs/msg/Float32MultiArray "{data: [0.0, 90.0]}" --once
 
 ros2 topic pub --once /target_position geometry_msgs/msg/Point "{x: 500.0, y: 0.0, z: 300.0}"
+
+ros2 topic pub --once /toggle_tracking std_msgs/msg/Bool "{data: true}"
+
+ros2 topic pub --once /go_home std_msgs/msg/Bool "{data: true}"
 
 ros2 topic echo
 
@@ -73,6 +79,28 @@ sudo nmcli connection delete "Robot-Link"
 
 sudo nmcli connection add type wifi con-name "Robot-Master" ssid "Robot-Master" wifi-sec.key-mgmt wpa-psk wifi-sec.psk "robot12345678"
 
+# ตั้งค่า Robot-Master ให้ Priority สูง (เช่น 100)
+sudo nmcli connection modify "Robot-Master" connection.autoconnect-priority 100
+
+# ตั้งค่า preconfigured ให้ Priority ต่ำกว่า (เช่น 0)
+sudo nmcli connection modify "preconfigured" connection.autoconnect-priority 0
+
 nmcli connection show
 
 ip neigh
+
+python3 opencv_raspi-zero.py
+
+sudo pkill -f opencv_raspi-zero.py
+
+rpicam-hello --list-cameras
+
+sudo nano /etc/systemd/system/robot.service
+sudo systemctl daemon-reload
+sudo systemctl start robot.service
+sudo systemctl restart robot.service
+sudo systemctl status robot.service
+
+ssh-keygen -R 172.20.10.2
+
+sudo pkill -f python3

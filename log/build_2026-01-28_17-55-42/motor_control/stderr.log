@@ -1,5 +1,0 @@
-  File "/home/raspi-earth/project_ws/install/motor_control/lib/python3.11/site-packages/motor_control/joint1_node.py", line 34
-    MIN_DELAY = 0.0003   
-                       ^
-SyntaxError: invalid non-printable character U+00A0
-

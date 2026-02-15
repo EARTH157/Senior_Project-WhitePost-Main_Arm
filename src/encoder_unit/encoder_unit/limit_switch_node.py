@@ -10,7 +10,7 @@ class LimitSwitchNode(Node):
             'Limit_1': 18,
             'Limit_2': 23,
             'Limit_3': 24,
-            'Limit_4': 25,
+            'Limit_4': 20,
             'Limit_5': 16,
         }
         
