@@ -614,13 +614,12 @@ class Main_Processor(Node):
         msg_float.data = float(joints[2])
         self.publisher3_.publish(msg_float) 
 
-        msg_servo_4 = Float32MultiArray()
-        msg_servo_4.data = [float(0.0), float(joints[3])] 
-        self.publisher_servo_.publish(msg_servo_4)
-        
-        msg_servo_5 = Float32MultiArray()
-        msg_servo_5.data = [float(1.0), float(joints[4])] 
-        self.publisher_servo_.publish(msg_servo_5)
+        # 🔥 แก้ตรงนี้: รวบส่ง Servo รวดเดียวใน 1 Message
+        # รูปแบบใหม่: [Target_Mux, Servo_Channel_1, Angle_1, Servo_Channel_2, Angle_2]
+        msg_servo_combined = Float32MultiArray()
+        # สมมติว่าทั้ง J4 และ J5 อยู่บน MUX Channel 0 เหมือนกัน (ถ้าคนละอันต้องบอกผมนะ)
+        msg_servo_combined.data = [0.0, 0.0, float(joints[3]), 1.0, float(joints[4])]
+        self.publisher_servo_.publish(msg_servo_combined)
 
 def main(args=None):
     rclpy.init(args=args)

@@ -145,20 +145,20 @@ class ServoMuxNode(Node):
     def cb_set_angle(self, msg):
         if not self.enabled: return
         data = msg.data
-        if len(data) == 2:
-            target_mux = self.default_mux
-            servo_ch = int(data[0])
-            angle = float(data[1])
-        elif len(data) == 3:
+        
+        # กรณีส่งมาทีละ 1 ตัว (แบบเดิม) หรือแบบหลายๆ ตัว
+        # รูปแบบใหม่ที่เราส่งมาคือ [Mux, Ch1, Ang1, Ch2, Ang2, ...]
+        
+        if len(data) >= 3 and len(data) % 2 == 1: 
             target_mux = int(data[0])
-            servo_ch = int(data[1])
-            angle = float(data[2])
-        else:
-            return 
-
-        self.activate_driver(target_mux) # เรียกฟังก์ชันที่ปลอดภัยแล้ว
-        pulse = self.angle_to_pulse(angle)
-        self.set_pwm(servo_ch, 0, pulse) # เรียกฟังก์ชันที่ปลอดภัยแล้ว
+            self.activate_driver(target_mux)
+            
+            # วนลูปอ่านค่า (Channel, Angle) ทีละคู่
+            for i in range(1, len(data), 2):
+                servo_ch = int(data[i])
+                angle = float(data[i+1])
+                pulse = self.angle_to_pulse(angle)
+                self.set_pwm(servo_ch, 0, pulse)
 
     def destroy_node(self):
         super().destroy_node()

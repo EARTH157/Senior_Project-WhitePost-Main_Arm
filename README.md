@@ -38,7 +38,7 @@ ros2 topic pub --once /joint1/set_target_angle std_msgs/msg/Float32 "{data: 45.0
 
 ros2 topic pub /servo/set_angle std_msgs/msg/Float32MultiArray "{data: [0.0, 90.0]}" --once
 
-ros2 topic pub --once /target_position geometry_msgs/msg/Point "{x: 500.0, y: 0.0, z: 300.0}"
+ros2 topic pub --once /target_position geometry_msgs/msg/Point "{x: 0.0, y: 300.0, z: 200.0}"
 
 ros2 topic pub --once /toggle_tracking std_msgs/msg/Bool "{data: true}"
 

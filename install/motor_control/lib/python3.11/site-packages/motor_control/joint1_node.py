@@ -34,7 +34,7 @@ KD = 0.01
 # Speed Settings
 PULSE_WIDTH = 0.00005
 
-ANGLE_TOLERANCE = 1.0
+ANGLE_TOLERANCE = 0.5
 WARN_DIFF_THRESHOLD = 0.5  # ยอมให้คลาดเคลื่อนได้ 0.5 องศา ถ้าเกินนี้ต้อง Homing ใหม่
 STATE_FILE = "joint1_last_state.json" 
 
@@ -222,11 +222,11 @@ class Joint1Driver(Node):
     # 🧠 PID WORKER: คำนวณ Error และสร้างความเร่ง (Acceleration)
     # ---------------------------------------------------------
     def pid_worker(self):
-        # --- ปรับจูนใหม่: เน้นแรงบิดสูง ช้าแต่มั่นคง ---
-        MAX_HZ = 600.0        # ⬇️ ลดลงเยอะมาก! (อย่าเพิ่งเกิน 800) เพื่อให้มีแรงบิดยกแขน
-        MIN_HZ = 50.0         # ⬇️ ออกตัวช้าๆ ให้แรงบิดช่วงเริ่มต้น (Holding Torque) ทำงานเต็มที่
-        ACCEL_RATE = 40.0     # ⬇️ ค่อยๆ เร่งความเร็ว (Soft Start) ป้องกันการกระชากจนหลุดสเต็ป
-        SPEED_MULTIPLIER = 20.0 # ⬇️ ลดความดุดันของ PID ลง
+        # --- ปรับจูนใหม่สำหรับ TB6600 (Microstep 1/8 หรือ 1600 Pulse/Rev) ---
+        MAX_HZ = 3500.0       # ⬆️ เพิ่มความเร็วสูงสุด (2000 Hz = วิ่งประมาณ 1.2 รอบ/วินาที)
+        MIN_HZ = 200.0        # ⬆️ เพิ่มความเร็วต่ำสุด เลี้ยงรอบไว้ไม่ให้หยุดกระชาก
+        ACCEL_RATE = 250.0    # ⬆️ เพิ่มอัตราเร่ง ให้ขยับเข้าหาเป้าหมายสมูทๆ
+        SPEED_MULTIPLIER = 50.0 # ⬆️ เพิ่มตัวคูณให้ PID ตอบสนองไวขึ้น
         
         while self.running and rclpy.ok():
             time.sleep(0.02) # รันที่ประมาณ 50Hz (ทุกๆ 20ms)

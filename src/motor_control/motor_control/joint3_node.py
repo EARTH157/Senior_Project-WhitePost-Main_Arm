@@ -86,14 +86,20 @@ class Joint3Driver(Node):
         # -----------------------------------------------------
         self.check_initial_position()
 
-        # เริ่ม Thread ควบคุม
+        # ตัวแปรควบคุมความเร็วและทิศทางแบบใหม่
+        self.target_hz = 0.0
+        self.current_hz = 0.0
+        self.motor_direction = 1
+        
+        # เริ่ม Thread ควบคุมแยกส่วน (Motor และ PID)
         self.running = True
-        self.worker_thread = threading.Thread(target=self.control_loop_worker, daemon=True)
-        self.worker_thread.start()
+        self.motor_thread = threading.Thread(target=self.motor_worker, daemon=True)
+        self.pid_thread = threading.Thread(target=self.pid_worker, daemon=True)
+        self.motor_thread.start()
+        self.pid_thread.start()
 
         if not self.is_homed:
-            self.get_logger().info("⏳ Waiting for calibration command... (Topic: /joint3/calibrate)")
-
+            self.get_logger().info("⏳ Waiting for calibration command... (Topic: /joint1/calibrate)")
     # ---------------------------------------------------------
     # 💾 STATE CHECKING
     # ---------------------------------------------------------
@@ -170,7 +176,14 @@ class Joint3Driver(Node):
             self.get_logger().warn("⚠️ Ignoring target: Need Calibration first!")
             return
             
-        self.current_target = msg.data
+        # 🔒 CLAMP TARGET: บังคับค่าให้อยู่ในช่วง 8.0 - 180.0 เสมอ
+        raw_target = msg.data
+        clamped_target = max(8.0, min(180.0, raw_target))
+        
+        if clamped_target != raw_target:
+             self.get_logger().warn(f"⚠️ Target Out of Range ({raw_target}). Clamped to {clamped_target}")
+
+        self.current_target = clamped_target
         self.get_logger().info(f"🎯 Target Updated: {self.current_target:.2f}")
         
         self.prev_error = 0.0
@@ -194,77 +207,91 @@ class Joint3Driver(Node):
         if wait_time < 0: wait_time = 0
         self.precise_delay(wait_time)
 
-    def control_loop_worker(self):
+    # ---------------------------------------------------------
+    # 🏎️ MOTOR WORKER: รับหน้าที่หมุนมอเตอร์อย่างเดียวให้จังหวะแม่นยำ
+    # ---------------------------------------------------------
+    def motor_worker(self):
         while self.running and rclpy.ok():
+            hz = self.current_hz
+            
+            # หากความถี่ต่ำมาก ให้ถือว่าหยุด (ประหยัด CPU)
+            if hz < 50.0:
+                time.sleep(0.005)
+                continue
+                
+            # 🛡️ SAFETY CHECK: หยุดถ้าชน Limit Switch ในทิศวิ่งเข้า (-1)
+            if GPIO.input(PIN_LIMIT) == 0 and self.motor_direction == -1:
+                time.sleep(0.005)
+                continue
+
+            # แปลงความถี่ (Hz) เป็น Delay
+            delay = 1.0 / hz
+            self.step_pulse_single(self.motor_direction, delay)
+
+    # ---------------------------------------------------------
+    # 🧠 PID WORKER: คำนวณ Error และสร้างความเร่ง (Acceleration)
+    # ---------------------------------------------------------
+    def pid_worker(self):
+        # --- ปรับจูนใหม่สำหรับ TB6600 (Microstep 1/8 หรือ 1600 Pulse/Rev) ---
+        MAX_HZ = 3500.0       # ⬆️ เพิ่มความเร็วสูงสุด (2000 Hz = วิ่งประมาณ 1.2 รอบ/วินาที)
+        MIN_HZ = 200.0        # ⬆️ เพิ่มความเร็วต่ำสุด เลี้ยงรอบไว้ไม่ให้หยุดกระชาก
+        ACCEL_RATE = 250.0    # ⬆️ เพิ่มอัตราเร่ง ให้ขยับเข้าหาเป้าหมายสมูทๆ
+        SPEED_MULTIPLIER = 50.0 # ⬆️ เพิ่มตัวคูณให้ PID ตอบสนองไวขึ้น
+        
+        while self.running and rclpy.ok():
+            time.sleep(0.02) # รันที่ประมาณ 50Hz (ทุกๆ 20ms)
+
             if not self.is_homed or self.current_target is None:
-                time.sleep(0.1)
+                self.target_hz = 0.0
+                self.current_hz = 0.0
                 continue
 
             current_angle = self.get_calibrated_angle()
-            if current_angle is None: 
-                time.sleep(0.01); continue
+            if current_angle is None: continue
 
             error = self.current_target - current_angle
-            
+
+            # Deadband (ถึงเป้าหมายแล้ว)
             if abs(error) <= ANGLE_TOLERANCE:
                 self.integral = 0.0
                 self.prev_error = 0.0
-                time.sleep(0.01)
+                self.target_hz = 0.0
+                
+                # ค่อยๆ ลดความเร็วลงจนหยุด (Deceleration) ป้องกันกระตุกตอนจบ
+                if self.current_hz > 0:
+                    self.current_hz -= ACCEL_RATE * 2 
+                    if self.current_hz < 0: self.current_hz = 0.0
                 continue 
 
+            # PID Logic
             now = time.time()
             dt = now - self.last_pid_time
-            if dt == 0: dt = 0.001
+            if dt <= 0: dt = 0.02
 
             self.integral += error * dt
-            
-            # 🔥 1. Anti-Windup
-            self.integral = max(min(self.integral, 20.0), -20.0)
-
             derivative = (error - self.prev_error) / dt
             pid_output = (KP * error) + (KI * self.integral) + (KD * derivative)
             
             self.prev_error = error
             self.last_pid_time = now
 
-            direction = 1 if pid_output > 0 else -1
+            # กำหนดทิศทางมอเตอร์
+            self.motor_direction = 1 if pid_output > 0 else -1
+            
+            # แปลง PID Output เป็นเป้าหมายความถี่ (Target Hz)
             speed_mag = abs(pid_output)
+            mapped_hz = MIN_HZ + (speed_mag * SPEED_MULTIPLIER) 
+            if mapped_hz > MAX_HZ: mapped_hz = MAX_HZ
             
-            # --- คำนวณความเร็วเป้าหมาย ---
-            if speed_mag > 0.01:
-                target_delay = MAX_DELAY - (speed_mag / 500.0)
-            else:
-                target_delay = MAX_DELAY
-            
-            target_delay = max(MIN_DELAY, min(MAX_DELAY, target_delay))
+            self.target_hz = mapped_hz
 
-            # --- 2. Acceleration Ramp (Soft Start) ---
-            RAMP_FACTOR = 0.05 
-            if getattr(self, 'current_delay', None) is None:
-                self.current_delay = MAX_DELAY
-                
-            self.current_delay = (self.current_delay * (1.0 - RAMP_FACTOR)) + (target_delay * RAMP_FACTOR)
-
-            # ------------------------------------------------------------------
-            # 🛡️ SAFETY CHECK: LIMIT SWITCH PROTECTION
-            # ------------------------------------------------------------------
-            if GPIO.input(PIN_LIMIT) == 0:  
-                # Joint 3 Homing วิ่งเข้าหา 0 (ทิศ -1)
-                if direction == -1: 
-                    self.integral = 0.0   
-                    self.prev_error = 0.0
-                    self.current_delay = MAX_DELAY 
-                    
-                    if int(time.time()) % 2 == 0: 
-                        print(f"🛑 LIMIT HIT! Blocking MOVE IN (-). Angle: {current_angle:.2f}", end='\r')
-                    
-                    time.sleep(0.01)
-                    continue  
-
-            # --- 3. สั่ง Pulse ---
-            if speed_mag > 0.01:
-                self.step_pulse_single(direction, self.current_delay)
-
+            # 🚀 ทำ Acceleration Ramp: ปรับความเร็วปัจจุบันให้เข้าหาเป้าหมายอย่างนุ่มนวล
+            if self.current_hz < self.target_hz:
+                self.current_hz += ACCEL_RATE
+                if self.current_hz > self.target_hz: self.current_hz = self.target_hz
+            elif self.current_hz > self.target_hz:
+                self.current_hz -= ACCEL_RATE
+                if self.current_hz < self.target_hz: self.current_hz = self.target_hz
     # ---------------------------------------------------------
     # 📐 SENSOR
     # ---------------------------------------------------------
@@ -360,9 +387,17 @@ class Joint3Driver(Node):
         self.get_logger().info("🛑 Shutting down...")
         self.save_current_state()
         
+        # ส่งสัญญาณให้ Threads ทั้งหมดหยุดทำงาน
         self.running = False
-        if hasattr(self, 'worker_thread'):
-            self.worker_thread.join()
+        
+        # รอให้ Motor Thread ปิดตัวอย่างสมบูรณ์
+        if hasattr(self, 'motor_thread'):
+            self.motor_thread.join()
+            
+        # รอให้ PID Thread ปิดตัวอย่างสมบูรณ์
+        if hasattr(self, 'pid_thread'):
+            self.pid_thread.join()
+            
         self.enable_motor(False)
         GPIO.cleanup()
         super().destroy_node()
