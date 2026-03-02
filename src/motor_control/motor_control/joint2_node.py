@@ -192,7 +192,7 @@ class Joint2Driver(Node):
              self.get_logger().warn(f"⚠️ Target Out of Range ({raw_target}). Clamped to {clamped_target}")
 
         self.current_target = clamped_target
-        self.get_logger().info(f"🎯 Target Updated: {self.current_target:.2f}")
+        #self.get_logger().info(f"🎯 Target Updated: {self.current_target:.2f}")
         
         self.prev_error = 0.0
         self.integral = 0.0
@@ -327,8 +327,8 @@ class Joint2Driver(Node):
             # ==========================================
             # กำหนดจุดอ้างอิง 3 จุดตามที่คุณวัดจริง
             P1_RAW = 1871.0   # จุดที่ 0 องศา
-            P2_RAW = 2715.0   # จุดที่ 90 องศา
-            P3_RAW = 4065.0   # จุดที่ 180 องศา (Limit Switch)
+            P2_RAW = 2800.0   # จุดที่ 90 องศา
+            P3_RAW = 3853.0   # จุดที่ 180 องศา (Limit Switch)
             
             P1_ANG = 0.0
             P2_ANG = 90.0

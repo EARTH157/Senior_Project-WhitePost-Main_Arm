@@ -174,7 +174,7 @@ class Joint1Driver(Node):
             return
             
         self.current_target = msg.data
-        self.get_logger().info(f"🎯 Target Updated: {self.current_target:.2f}")
+        #self.get_logger().info(f"🎯 Target Updated: {self.current_target:.2f}")
         
         self.prev_error = 0.0
         self.integral = 0.0
@@ -302,8 +302,8 @@ class Joint1Driver(Node):
             lo = self.bus.read_byte_data(AS5600_ADDR, 0x0F)
             current_raw = (hi << 8) | lo
                 
-            RAW_AT_0_DEG  = 585.0   
-            RAW_AT_90_DEG = 1720.0   
+            RAW_AT_0_DEG  = 653.0   
+            RAW_AT_90_DEG = 1760.0   
                 
             slope = (90.0 - 0.0) / (RAW_AT_90_DEG - RAW_AT_0_DEG)
             real_angle = slope * (current_raw - RAW_AT_0_DEG) + 0.0

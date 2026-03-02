@@ -29,6 +29,7 @@ setup(
             'test1 = processor_unit.test1:main',
             'uart_zero_two_w = processor_unit.uart_zero_two_w:main',
             'steam_cam = processor_unit.steam_opencv:main',
+            'uart_command_and_status_to_pi5 = processor_unit.uart_command_and_status_to_pi5:main',
         ],
     },
 )

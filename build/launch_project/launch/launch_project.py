@@ -1,1 +1,0 @@
-/home/raspi-earth/project_ws/src/launch_project/launch/launch_project.py

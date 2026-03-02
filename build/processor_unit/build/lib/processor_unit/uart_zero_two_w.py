@@ -11,7 +11,7 @@ class SerialBridgePi5(Node):
         self.serial_port = serial.Serial('/dev/ttyAMA1', 9600, timeout=0.1)
         
         # สร้าง Publisher เพื่อส่งข้อมูลที่ได้รับจาก UART เข้าสู่ระบบ ROS 2
-        self.publisher_ = self.create_publisher(String, 'uart_rx', 10)
+        self.publisher_ = self.create_publisher(String, '/uart_rx_zero_2w', 10)
         
         # สร้าง Subscriber เพื่อรับข้อมูลจาก ROS 2 แล้วส่งออกทาง UART
         self.subscription = self.create_subscription(

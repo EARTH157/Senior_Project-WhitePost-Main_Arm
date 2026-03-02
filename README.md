@@ -40,11 +40,17 @@ ros2 topic pub /servo/set_angle std_msgs/msg/Float32MultiArray "{data: [0.0, 90.
 
 ros2 topic pub --once /target_position geometry_msgs/msg/Point "{x: 0.0, y: 300.0, z: 200.0}"
 
+ros2 topic pub --once /target_position geometry_msgs/msg/Point "{x: 600.0, y: 400.0, z: 450.0}"
+
 ros2 topic pub --once /toggle_tracking std_msgs/msg/Bool "{data: true}"
 
 ros2 topic pub --once /go_home std_msgs/msg/Bool "{data: true}"
 
+ros2 topic pub --once /go_start std_msgs/msg/Bool "{data: true}"
+
 ros2 topic echo
+
+ros2 topic pub --once /set_target_label std_msgs/msg/String "{data: 'button'}"
 
 # เลือก channel 0
 

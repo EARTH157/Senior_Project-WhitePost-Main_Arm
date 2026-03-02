@@ -17,7 +17,7 @@ import os
 PIN_ENA = 22
 PIN_DIR = 27
 PIN_PUL = 17
-PIN_LIMIT = 16
+PIN_LIMIT = 21
 ENA_ACTIVE_HIGH = False 
 
 # I2C Sensor (AS5600)
@@ -184,7 +184,7 @@ class Joint3Driver(Node):
              self.get_logger().warn(f"⚠️ Target Out of Range ({raw_target}). Clamped to {clamped_target}")
 
         self.current_target = clamped_target
-        self.get_logger().info(f"🎯 Target Updated: {self.current_target:.2f}")
+        #self.get_logger().info(f"🎯 Target Updated: {self.current_target:.2f}")
         
         self.prev_error = 0.0
         self.integral = 0.0
@@ -315,7 +315,7 @@ class Joint3Driver(Node):
             # ==========================================
             # ⚙️ 2-POINT CALIBRATION FOR JOINT 3
             # ==========================================
-            P1_RAW = 313.0
+            P1_RAW = 338.0
             P1_ANG = 8.0
             
             P2_RAW = 2300.0

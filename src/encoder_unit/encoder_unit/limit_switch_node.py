@@ -9,7 +9,7 @@ class LimitSwitchNode(Node):
         self.limit_pins = {
             'Limit_1': 18,
             'Limit_2': 23,
-            'Limit_3': 24,
+            'Limit_3': 21,
             'Limit_4': 20,
             'Limit_5': 16,
         }

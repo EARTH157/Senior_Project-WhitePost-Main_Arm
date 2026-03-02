@@ -8,7 +8,11 @@ import struct
 import numpy as np
 import os
 import math
-from std_msgs.msg import Bool
+import time
+from std_msgs.msg import Bool, String
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
+
+from ultralytics import YOLO
 
 # --- ค่าคงที่ ---
 RES_W, RES_H = 640, 480
@@ -23,20 +27,32 @@ class SocketTrackerNode(Node):
     def __init__(self):
         super().__init__('socket_tracker_node')
         
+        self.get_logger().info("Loading YOLO model...")
+        # 🔥 แก้พาธตรงนี้ให้ตรงกับของคุณ
+        self.model = YOLO('/home/raspi-earth/project_ws/src/processor_unit/processor_unit/best.pt')
+        
         # --- ตัวแปรระบบ Tracking ---
         self.last_x = CENTER_X
         self.last_y = CENTER_Y
-        self.last_r = 0 # เพิ่มตัวแปรเก็บค่ารัศมีเฟรมก่อนหน้าเพื่อทำ Smoothing
-        self.is_tracking = False
+        self.last_r = 0 
         self.miss_count = 0
         self.MAX_MISS_FRAMES = 10
-        self.JUMP_THRESHOLD = 150
         self.SMOOTH_FACTOR = 0.3
-        self.view_mode = 0 
         
-        # 🔥 เพิ่มตัวแปรสำหรับควบคุมระยะห่าง (แกน Y)
-        self.TARGET_RADIUS = 80      # ขนาดรัศมีเป้าหมาย (ยิ่งเยอะ แปลว่าให้หุ่นเข้าไปใกล้) ปรับค่าได้ตามต้องการ!
-        self.RADIUS_DEAD_ZONE = 40   # ระยะยอมให้คลาดเคลื่อนได้ จะได้ไม่ขยับเดินหน้าถอยหลังสั่นๆ
+        # 🔥 [ใหม่] ชื่อเป้าหมายที่ต้องการเดินตาม (พิมพ์ตัวพิมพ์เล็กหรือใหญ่ก็ได้)
+        # ถ้าต้องการให้ตามทุกอย่างแบบเดิม ให้ตั้งเป็น "all"
+        self.target_label = "all"  # ลองเปลี่ยนเป็น "button" ดูครับ
+        
+        # ระบบจัดการ Skip Frame
+        self.frame_counter = 0
+        self.SKIP_FRAMES = 2 # ปรับเพิ่มเป็น 2 หรือ 3 ได้ถ้าภาพยังกระตุก
+
+        # --- ควบคุมระยะห่าง (แกน Y) ---
+        self.TARGET_RADIUS = 80      
+        self.RADIUS_DEAD_ZONE = 20   
+        
+        self.waiting_for_robot = False
+        self.last_msg_time = 0  
         
         # --- ตั้งค่า Socket ---
         os.environ["QT_QPA_PLATFORM"] = "xcb"
@@ -56,29 +72,40 @@ class SocketTrackerNode(Node):
         
         # --- ตั้งค่า UI ของ OpenCV ---
         cv2.namedWindow("Tuner")
-        cv2.createTrackbar("Param1 (Edge)", "Tuner", 100, 200, nothing)
-        cv2.createTrackbar("Param2 (Thresh)", "Tuner", 45, 150, nothing) 
-        cv2.createTrackbar("Min Radius", "Tuner", 20, 100, nothing)
-        cv2.createTrackbar("Max Radius", "Tuner", 150, 300, nothing)
+        cv2.createTrackbar("Confidence", "Tuner", 50, 100, nothing)
         
-        # 1. สร้าง ROS 2 Publisher
-        # msg.x = Error แนวนอน, msg.y = Error แนวตั้ง, msg.z = รัศมีของวัตถุ (ความใกล้-ไกล)
-        self.error_pub = self.create_publisher(Point, '/target_error', 10)
-
-        # 🔥 เพิ่ม Publisher สำหรับสั่งเปิด/ปิดโหมด Tracking ของหุ่นยนต์
+        qos_profile = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=10
+        )
+        
+        self.error_pub = self.create_publisher(Point, '/target_error', qos_profile)
         self.toggle_pub = self.create_publisher(Bool, '/toggle_tracking', 10)
-        self.robot_tracking_state = False # ตัวแปรเก็บสถานะการสั่งงาน
+        
+        self.robot_tracking_state = False 
+        self.sub_ready = self.create_subscription(Bool, '/tracking_ready', self.cb_robot_ready, 10)
+        
+        # 🔥 [ใหม่] รับค่าคำสั่งเปลี่ยนชื่อเป้าหมายจากภายนอก
+        self.sub_target = self.create_subscription(String, '/set_target_label', self.cb_set_target, 10)
         
         print("Controls:")
-        print(" - 'v': Toggle Edge View")
-        print(" - 'r': Reset Tracking")
+        print(" - 't': Toggle Tracking State (ON/OFF)")
         print(" - 'q': Quit")
+        
+    def cb_robot_ready(self, msg):
+        if msg.data:
+            self.waiting_for_robot = False
 
-    def draw_text_bg(self, img, text, pos, font_scale=0.6, color=(255, 255, 255), thickness=2):
+    def cb_set_target(self, msg):
+        self.target_label = msg.data.strip()
+        self.get_logger().info(f"🎯 Changed target to: {self.target_label}")
+
+    def draw_text_bg(self, img, text, pos, font_scale=0.6, color=(255, 255, 255), thickness=2, bg_color=(0, 0, 0)):
         font = cv2.FONT_HERSHEY_SIMPLEX
         (w, h), _ = cv2.getTextSize(text, font, font_scale, thickness)
         x, y = pos
-        cv2.rectangle(img, (x, y - h - 5), (x + w, y + 5), (0, 0, 0), -1) 
+        cv2.rectangle(img, (x, y - h - 5), (x + w, y + 5), bg_color, -1) 
         cv2.putText(img, text, (x, y), font, font_scale, color, thickness)
 
     def simulate_control(self, error_x, error_y, error_r):
@@ -95,7 +122,6 @@ class SocketTrackerNode(Node):
             is_centered = False
             msg_y = "UP" if error_y > 0 else "DOWN"
 
-        # เช็คระยะห่าง (Depth)
         if abs(error_r) > self.RADIUS_DEAD_ZONE:
             is_centered = False
             msg_r = "FORWARD" if error_r > 0 else "BACKWARD"
@@ -112,7 +138,6 @@ class SocketTrackerNode(Node):
             while rclpy.ok(): 
                 rclpy.spin_once(self, timeout_sec=0.01)
 
-                # 1. รับ Header
                 while len(data) < self.payload_size:
                     packet = self.conn.recv(4*1024)
                     if not packet: break
@@ -124,138 +149,171 @@ class SocketTrackerNode(Node):
                 data = data[self.payload_size:]
                 msg_size = struct.unpack("Q", packed_msg_size)[0]
                 
-                # 2. รับเนื้อภาพ
                 while len(data) < msg_size:
                     data += self.conn.recv(4*1024)
                     
                 frame_data = data[:msg_size]
                 data = data[msg_size:]
 
-                # 3. แปลงข้อมูลเป็นภาพ
+                # 🚀 ทริคที่ 1: เช็คเงื่อนไข Skip เฟรม "ก่อน" ถอดรหัสภาพ!
+                self.frame_counter += 1
+                
+                # ถ้ายังไม่ถึงรอบเฟรมที่ต้องการ ให้ข้ามไปเลย (ดึงข้อมูลทิ้งออกจาก Buffer เฉยๆ)
+                if self.frame_counter % (self.SKIP_FRAMES + 1) != 0:
+                    continue 
+
+                # 🚀 ถอดรหัสภาพเฉพาะเฟรมที่เราจะเอาไปรัน YOLO จริงๆ (ประหยัด CPU มาก)
                 frame = cv2.imdecode(np.frombuffer(frame_data, np.uint8), cv2.IMREAD_COLOR)
 
                 if frame is not None:
                     frame = cv2.rotate(frame, cv2.ROTATE_180)
-                    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                    gray_blurred = cv2.GaussianBlur(gray, (9, 9), 2)
-
-                    p1 = max(1, cv2.getTrackbarPos("Param1 (Edge)", "Tuner"))
-                    p2 = max(1, cv2.getTrackbarPos("Param2 (Thresh)", "Tuner"))
-                    min_r = max(1, cv2.getTrackbarPos("Min Radius", "Tuner"))
-                    max_r = cv2.getTrackbarPos("Max Radius", "Tuner")
-
-                    circles = cv2.HoughCircles(
-                        gray_blurred, cv2.HOUGH_GRADIENT, dp=1, minDist=RES_H/4,
-                        param1=p1, param2=p2, minRadius=min_r, maxRadius=max_r
-                    )
-
-                    if self.view_mode == 1:
-                        edges = cv2.Canny(gray_blurred, p1/2, p1)
-                        display_frame = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
-                        self.draw_text_bg(display_frame, "MODE: EDGE VIEW", (10, RES_H-20), 0.7, (0, 255, 255))
-                    else:
-                        display_frame = frame.copy()
+                    display_frame = frame.copy()
 
                     cv2.line(display_frame, (CENTER_X, 0), (CENTER_X, RES_H), (255, 255, 0), 1)
                     cv2.line(display_frame, (0, CENTER_Y), (RES_W, CENTER_Y), (255, 255, 0), 1)
                     cv2.rectangle(display_frame, (CENTER_X-DEAD_ZONE, CENTER_Y-DEAD_ZONE),
                                 (CENTER_X+DEAD_ZONE, CENTER_Y+DEAD_ZONE), (255, 255, 0), 1)
+                    
+                    # 🔥 วาดบอกว่าตอนนี้กำลังหาอะไรอยู่
+                    self.draw_text_bg(display_frame, f"SEARCHING: {self.target_label.upper()}", (10, 30), 0.7, (0, 255, 255), 2, (50, 50, 50))
+
+                    conf_thresh = cv2.getTrackbarPos("Confidence", "Tuner") / 100.0
+                    if conf_thresh == 0: conf_thresh = 0.01
+
+                    # รัน YOLO (ปรับ imgsz ลงมาเพื่อความลื่น)
+                    results = self.model.predict(source=frame, conf=conf_thresh, imgsz=320, verbose=False)
+                    boxes = results[0].boxes
 
                     found_valid_target = False
-                    error_x, error_y, current_r = 0.0, 0.0, 0.0 # เพิ่ม current_r
+                    error_x, error_y, current_r = 0.0, 0.0, 0.0 
                     
-                    if circles is not None:
-                        circles = np.float32(np.around(circles))
-                        best_circle = None
-                        min_dist_to_last = 99999
+                    if len(boxes) > 0:
+                        largest_box = None
                         max_radius = 0
 
-                        for i in circles[0, :]:
-                            cx, cy, r = i[0], i[1], i[2]
+                        for box in boxes:
+                            # ดึงข้อมูลชื่อและเปอร์เซ็นต์
+                            conf = float(box.conf[0].cpu().numpy())
+                            cls_id = int(box.cls[0].cpu().numpy())
+                            cls_name = self.model.names[cls_id]
                             
-                            if self.view_mode == 0:
-                                cv2.circle(display_frame, (int(cx), int(cy)), int(r), (100, 100, 100), 1)
+                            x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
+                            cx = (x1 + x2) / 2.0
+                            cy = (y1 + y2) / 2.0
+                            w = x2 - x1
+                            h = y2 - y1
+                            r = max(w, h) / 2.0 
 
-                            dist_from_last = math.sqrt((int(cx) - int(self.last_x))**2 + (int(cy) - int(self.last_y))**2)
+                            # 🔥 ตรวจสอบว่าตรงกับเป้าหมายที่ต้องการหาหรือไม่?
+                            # ถ้าไม่ได้ตั้งเป็น "all" และชื่อไม่ตรงกับที่กรอกไว้ -> ข้ามไปเลย
+                            if self.target_label.lower() != "all" and cls_name.lower() != self.target_label.lower():
+                                # วาดเป็นกรอบสีเทาเพื่อให้รู้ว่า AI เจอ แต่ไม่ใช่เป้าหมาย
+                                cv2.rectangle(display_frame, (int(x1), int(y1)), (int(x2), int(y2)), (100, 100, 100), 1)
+                                label = f"{cls_name} {conf:.2f} (Ignored)"
+                                self.draw_text_bg(display_frame, label, (int(x1), int(y1) - 10), font_scale=0.4, color=(150, 150, 150), thickness=1, bg_color=(30, 30, 30))
+                                continue
 
-                            if self.is_tracking:
-                                if dist_from_last < self.JUMP_THRESHOLD and dist_from_last < min_dist_to_last:
-                                    min_dist_to_last = dist_from_last
-                                    best_circle = i
-                            else:
-                                if r > max_radius:
-                                    max_radius = r
-                                    best_circle = i
+                            # ถ้าเป็นเป้าหมายที่ต้องการ ค่อยนำมาวาดและประมวลผลให้หุ่นยนต์
+                            cv2.rectangle(display_frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
+                            cv2.circle(display_frame, (int(cx), int(cy)), 5, (0, 0, 255), -1)
+                            label = f"{cls_name} {conf:.2f}"
+                            self.draw_text_bg(display_frame, label, (int(x1), int(y1) - 10), font_scale=0.5, color=(0, 255, 0), thickness=1, bg_color=(50, 50, 50))
 
-                        if best_circle is not None:
+                            # เลือกเฉพาะเป้าหมายที่ใหญ่ที่สุดไปใช้
+                            if r > max_radius:
+                                max_radius = r
+                                largest_box = (cx, cy, r)
+
+                        if largest_box is not None:
                             found_valid_target = True
                             self.miss_count = 0
-                            self.is_tracking = True
                             
-                            raw_x, raw_y, raw_r = best_circle[0], best_circle[1], best_circle[2]
+                            raw_x, raw_y, raw_r = largest_box
 
-                            # Smoothing แกน X, Y และ R (ความกว้างของเป้า)
                             current_x = int((raw_x * self.SMOOTH_FACTOR) + (self.last_x * (1 - self.SMOOTH_FACTOR)))
                             current_y = int((raw_y * self.SMOOTH_FACTOR) + (self.last_y * (1 - self.SMOOTH_FACTOR)))
                             current_r = int((raw_r * self.SMOOTH_FACTOR) + (self.last_r * (1 - self.SMOOTH_FACTOR)))
                             
                             self.last_x, self.last_y, self.last_r = current_x, current_y, current_r
 
-                            cv2.circle(display_frame, (current_x, current_y), int(current_r), (0, 255, 0), 3)
                             cv2.arrowedLine(display_frame, (CENTER_X, CENTER_Y), (current_x, current_y), (0, 255, 255), 3, tipLength=0.2)
 
-                            # คำนวณ Error ทั้ง 3 แกน
                             error_x = float(current_x - CENTER_X)
                             error_y = float(CENTER_Y - current_y)
-                            error_r = float(self.TARGET_RADIUS - current_r) # 🔥 คำนวณความผิดปกติของระยะห่าง
+                            error_r = float(self.TARGET_RADIUS - current_r) 
                             
                             status_text, status_color = self.simulate_control(error_x, error_y, error_r)
                             
-                            # วาดบอกค่าบนหน้าจอ
                             self.draw_text_bg(display_frame, f"Diff X: {error_x:.1f}", (current_x + 10, current_y - 25), 0.6, (255, 255, 0))
-                            self.draw_text_bg(display_frame, f"Diff Z(y): {error_y:.1f}", (current_x + 10, current_y), 0.6, (255, 255, 0))
-                            self.draw_text_bg(display_frame, f"Diff Y(r): {error_r:.1f}", (current_x + 10, current_y + 25), 0.6, (0, 255, 255))
+                            self.draw_text_bg(display_frame, f"Diff Z: {error_y:.1f}", (current_x + 10, current_y), 0.6, (255, 255, 0))
+                            self.draw_text_bg(display_frame, f"Diff R: {error_r:.1f}", (current_x + 10, current_y + 25), 0.6, (0, 255, 255))
+                            
+                            if self.waiting_for_robot and self.robot_tracking_state:
+                                self.draw_text_bg(display_frame, "WAITING FOR ROBOT...", (CENTER_X - 120, RES_H - 80), 0.8, (0, 165, 255))
                             
                             self.draw_text_bg(display_frame, status_text, (CENTER_X - 100, RES_H - 50), 1.0, status_color)
 
-                    # สร้าง Message และส่งข้อมูลผ่าน ROS 2 Topic
                     msg = Point()
-                    msg.x = float(error_x) # แกน X: ขวา/ซ้าย
-                    msg.z = float(error_y) # แกน Z: ขึ้น/ลง
+                    msg.x = float(error_x)
+                    msg.z = float(error_y) 
 
                     if not found_valid_target:
                         self.miss_count += 1
                         if self.miss_count > self.MAX_MISS_FRAMES:
-                            self.is_tracking = False
                             self.last_x, self.last_y, self.last_r = CENTER_X, CENTER_Y, self.TARGET_RADIUS
-                            self.draw_text_bg(display_frame, "NO TARGET", (CENTER_X - 80, RES_H - 50), 1.0, (100, 100, 100))
-                            msg.y = 0.0 # เป็น 0 เพื่อให้หุ่นหยุดเดินหน้า/ถอยหลัง
+                            self.draw_text_bg(display_frame, "NO VALID TARGET", (CENTER_X - 100, RES_H - 50), 1.0, (100, 100, 100))
+                            msg.y = 0.0 
                         else:
                             cv2.circle(display_frame, (int(self.last_x), int(self.last_y)), 5, (0, 255, 255), -1)
-                            self.draw_text_bg(display_frame, "LOST signal... holding", (10, 30), 0.6, (0, 165, 255))
-                            msg.y = float(self.TARGET_RADIUS - self.last_r) # จำค่า Error ความลึกเดิมไว้
+                            self.draw_text_bg(display_frame, "LOST signal... holding", (10, 60), 0.6, (0, 165, 255))
+                            msg.y = float(self.TARGET_RADIUS - self.last_r) 
                     else:
-                        msg.y = float(error_r) # 🔥 ส่งค่า Error ของระยะห่างไปที่แกน Y
+                        msg.y = float(error_r) 
+                        
+                    current_time = time.time()
+                    is_timeout = (self.waiting_for_robot and (current_time - self.last_msg_time > 5.0))
 
-                    # พับลิชข้อมูลออกไป!
-                    self.error_pub.publish(msg)
+                    if self.robot_tracking_state and (not self.waiting_for_robot or is_timeout):
+                        if is_timeout:
+                            self.get_logger().warn("⏰ Timeout! ปลดล็อคส่งใหม่...")
+                            self.waiting_for_robot = False
+                            
+                        needs_move = False
+                        
+                        if abs(error_x) < DEAD_ZONE:
+                            msg.x = 0.0 
+                        else:
+                            needs_move = True 
+
+                        if abs(error_y) < DEAD_ZONE: 
+                            msg.z = 0.0
+                        else:
+                            needs_move = True
+
+                        if abs(error_r) < self.RADIUS_DEAD_ZONE:
+                            msg.y = 0.0
+                        else:
+                            needs_move = True
+
+                        if needs_move:
+                            self.error_pub.publish(msg)
+                            self.last_msg_time = time.time()
+                            self.waiting_for_robot = True 
+                            self.get_logger().info(f"📤 Sent Error: X={msg.x:.1f}, Y={msg.y:.1f}, Z={msg.z:.1f}")
 
                     cv2.imshow("Robot View", display_frame)
                     
                     key = cv2.waitKey(1) & 0xFF
                     if key == ord('q'):
                         break
-                    elif key == ord('v'):
-                        self.view_mode = 1 - self.view_mode
-                    elif key == ord('r'):
-                        self.is_tracking = False
-                        self.miss_count = self.MAX_MISS_FRAMES + 1
-                    # 🔥 เพิ่มปุ่ม 't' เพื่อส่งคำสั่งไปให้ main_processor
                     elif key == ord('t'):
                         self.robot_tracking_state = not self.robot_tracking_state
                         msg_toggle = Bool()
                         msg_toggle.data = self.robot_tracking_state
                         self.toggle_pub.publish(msg_toggle)
+
+                        if not self.robot_tracking_state:
+                            self.waiting_for_robot = False
 
                         status_str = "ON" if self.robot_tracking_state else "OFF"
                         self.get_logger().info(f"👉 Sent Tracking Toggle: {status_str}")
@@ -272,9 +330,7 @@ class SocketTrackerNode(Node):
 def main(args=None):
     rclpy.init(args=args)
     node = SocketTrackerNode()
-    
     node.run_loop() 
-    
     node.destroy_node()
     rclpy.shutdown()
 
