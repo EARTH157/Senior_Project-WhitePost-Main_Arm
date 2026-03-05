@@ -7,9 +7,9 @@ class LimitSwitchNode(Node):
         super().__init__('limit_switch_node')
         
         self.limit_pins = {
-            'Limit_1': 18,
-            'Limit_2': 23,
-            'Limit_3': 21,
+            'Limit_1': 23,
+            'Limit_2': 24,
+            'Limit_3': 25,
             'Limit_4': 20,
             'Limit_5': 16,
         }

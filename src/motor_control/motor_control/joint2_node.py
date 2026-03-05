@@ -17,7 +17,7 @@ import os
 PIN_ENA = 11
 PIN_DIR = 9
 PIN_PUL = 10
-PIN_LIMIT = 20
+PIN_LIMIT = 24
 ENA_ACTIVE_HIGH = False 
 
 # I2C Sensor (AS5600)
