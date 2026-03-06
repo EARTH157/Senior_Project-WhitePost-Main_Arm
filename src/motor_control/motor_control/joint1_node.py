@@ -3,9 +3,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32, Bool
 import RPi.GPIO as GPIO
-import smbus2
 import time
-import fcntl
 import sys
 import threading
 import json
@@ -19,12 +17,6 @@ PIN_DIR = 6
 PIN_PUL = 5
 PIN_LIMIT = 23
 ENA_ACTIVE_HIGH = False 
-
-# I2C Sensor (AS5600)
-I2C_BUS_ID = 1
-MUX_ADDR = 0x70
-AS5600_ADDR = 0x36
-MUX_CHANNEL = 1
 
 # PID Parameters
 KP = 1.0
@@ -62,14 +54,10 @@ class Joint1Driver(Node):
         GPIO.setup(PIN_PUL, GPIO.OUT, initial=GPIO.LOW)
         GPIO.setup(PIN_LIMIT, GPIO.IN, pull_up_down=GPIO.PUD_UP)
         
-        # Setup I2C
-        try:
-            self.bus = smbus2.SMBus(I2C_BUS_ID)
-            if self.read_as5600() is None: raise Exception("Sensor Error")
-            self.get_logger().info("✅ Sensor OK.")
-        except Exception as e:
-            self.get_logger().fatal(f"🛑 Sensor Failed: {e}")
-            sys.exit(1)
+        # (เพิ่มตรงที่เคยเป็น Setup I2C)
+        self.latest_raw_sensor_val = None
+        # สมมติเป็น joint1_node ก็ subscribe '/sensor/as5600/joint1' (แก้ชื่อเลขให้ตรงตามไฟล์)
+        self.create_subscription(Float32, '/sensor/as5600/joint1', self.raw_sensor_callback, 10)
 
         # ROS Setup
         self.create_subscription(Float32, 'joint1/set_target_angle', self.target_callback, 10)
@@ -97,6 +85,9 @@ class Joint1Driver(Node):
 
         if not self.is_homed:
             self.get_logger().info("⏳ Waiting for calibration command... (Topic: /joint1/calibrate)")
+
+    def raw_sensor_callback(self, msg: Float32):
+        self.latest_raw_sensor_val = msg.data
 
     # ---------------------------------------------------------
     # 💾 STATE CHECKING
@@ -293,28 +284,29 @@ class Joint1Driver(Node):
         return None
 
     def read_as5600(self):
+        # ถ้าระบบยังไม่ได้รับค่าจาก ESP32 เลย ให้ return None
+        if self.latest_raw_sensor_val is None:
+            return None
+            
         real_angle = None
+        current_raw = self.latest_raw_sensor_val
         
-        fcntl.flock(self.lock_file, fcntl.LOCK_EX)
         try:
-            self.bus.write_byte(0x70, 1 << 1)
-            hi = self.bus.read_byte_data(AS5600_ADDR, 0x0E) & 0x0F
-            lo = self.bus.read_byte_data(AS5600_ADDR, 0x0F)
-            current_raw = (hi << 8) | lo
-                
+            # ==========================================
+            # ⚙️ โค้ดคำนวณ Calibration ของคุณใส่ไว้ตรงนี้เหมือนเดิม!
+            # (ด้านล่างนี้เป็นสูตรเดิมของ Joint 1)
+            # ==========================================
             RAW_AT_0_DEG  = 653.0   
             RAW_AT_90_DEG = 1760.0   
                 
             slope = (90.0 - 0.0) / (RAW_AT_90_DEG - RAW_AT_0_DEG)
             real_angle = slope * (current_raw - RAW_AT_0_DEG) + 0.0
-    
+            
         except Exception as e:
-            pass # ซ่อน log I2C แบบจุกจิก
-        finally:
-            fcntl.flock(self.lock_file, fcntl.LOCK_UN)
+            self.get_logger().error(f"Sensor Math Error: {e}")
 
         return real_angle
-
+        
     def report_status(self):
         cal_msg = Bool()
         cal_msg.data = self.is_homed
