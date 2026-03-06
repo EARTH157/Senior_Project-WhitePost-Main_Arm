@@ -3,8 +3,6 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32, Bool
 import RPi.GPIO as GPIO
-import fcntl
-import smbus2
 import time
 import sys
 import threading
@@ -56,14 +54,10 @@ class Joint3Driver(Node):
         self.last_pid_time = time.time()
         self.current_delay = MAX_DELAY # 🔥 ตัวแปรสำหรับทำ Soft Start
 
-        # Setup GPIO
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setwarnings(False)
-        # 🔥 เปลี่ยนเป็น LOW เพื่อล็อคมอเตอร์กันแขนตกตอนเริ่มต้น
-        GPIO.setup(PIN_ENA, GPIO.OUT, initial=GPIO.LOW) 
-        GPIO.setup(PIN_DIR, GPIO.OUT, initial=GPIO.LOW)
-        GPIO.setup(PIN_PUL, GPIO.OUT, initial=GPIO.LOW)
-        GPIO.setup(PIN_LIMIT, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        # (เพิ่มตรงที่เคยเป็น Setup I2C)
+        self.latest_raw_sensor_val = None
+        # สมมติเป็น joint1_node ก็ subscribe '/sensor/as5600/joint1' (แก้ชื่อเลขให้ตรงตามไฟล์)
+        self.create_subscription(Float32, '/sensor/as5600/joint1', self.raw_sensor_callback, 10)
         
         # Setup I2C
         try:
@@ -100,6 +94,10 @@ class Joint3Driver(Node):
 
         if not self.is_homed:
             self.get_logger().info("⏳ Waiting for calibration command... (Topic: /joint1/calibrate)")
+
+    def raw_sensor_callback(self, msg: Float32):
+        self.latest_raw_sensor_val = msg.data
+        
     # ---------------------------------------------------------
     # 💾 STATE CHECKING
     # ---------------------------------------------------------
@@ -302,16 +300,15 @@ class Joint3Driver(Node):
         return None
 
     def read_as5600(self):
+        # ถ้าระบบยังไม่ได้รับค่าจาก ESP32 ผ่าน Topic เลย ให้ส่งค่า None กลับไปก่อน
+        if self.latest_raw_sensor_val is None:
+            return None
+            
         real_angle = None
-        
-        fcntl.flock(self.lock_file, fcntl.LOCK_EX)
+        # ดึงค่าล่าสุดที่ได้รับจาก ESP32 Bridge
+        current_raw = self.latest_raw_sensor_val
         
         try:
-            self.bus.write_byte(0x70, 1 << 3)
-            hi = self.bus.read_byte_data(AS5600_ADDR, 0x0E) & 0x0F
-            lo = self.bus.read_byte_data(AS5600_ADDR, 0x0F)
-            current_raw = (hi << 8) | lo
-            
             # ==========================================
             # ⚙️ 2-POINT CALIBRATION FOR JOINT 3
             # ==========================================
@@ -321,15 +318,15 @@ class Joint3Driver(Node):
             P2_RAW = 2300.0
             P2_ANG = 180.0
             
+            # คำนวณความชันและองศาจริง
             slope = (P2_ANG - P1_ANG) / (P2_RAW - P1_RAW)
             real_angle = P1_ANG + slope * (current_raw - P1_RAW)
             
         except Exception as e:
-            pass 
-        finally:
-            fcntl.flock(self.lock_file, fcntl.LOCK_UN)
+            # แจ้งเตือนหากเกิดข้อผิดพลาดในการคำนวณ
+            self.get_logger().error(f"Sensor Math Error: {e}")
             
-        return real_angle 
+        return real_angle
 
     def report_status(self):
         cal_msg = Bool()
