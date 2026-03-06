@@ -1,88 +1,130 @@
 #include <Wire.h>
-#include <Adafruit_PWMServoDriver.h> // ไลบรารีสำหรับ PCA9685
 
 #define MUX_ADDR 0x70
 #define AS5600_ADDR 0x36
+#define PCA9685_ADDR 0x40
 
-// สร้างออบเจกต์สำหรับ PCA9685 (Address เริ่มต้นคือ 0x40)
-Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40);
+bool pca_initialized[8] = {false}; // เก็บสถานะว่าช่องไหน Init Servo ไปแล้วบ้าง
 
-// ค่าความกว้างของสัญญาณ PWM สำหรับ Servo ทั่วไป (อาจต้องปรับจูนตามรุ่นของ Servo)
-#define SERVOMIN  150 // ค่า PWM สำหรับ 0 องศา
-#define SERVOMAX  600 // ค่า PWM สำหรับ 180 องศา
+void setup() {
+  Serial.begin(115200);
+  Wire.begin(); 
+  Serial.setTimeout(10); // ให้รับคำสั่ง Serial ไวขึ้น
+  delay(1000);
+}
 
-void selectI2CChannel(uint8_t channel) {
+// ----------------- I2C Functions -----------------
+void selectMuxChannel(uint8_t channel) {
   if (channel > 7) return;
   Wire.beginTransmission(MUX_ADDR);
   Wire.write(1 << channel);
   Wire.endTransmission();
 }
 
+bool pingDevice(uint8_t address) {
+  Wire.beginTransmission(address);
+  return (Wire.endTransmission() == 0);
+}
+
 int readAS5600Raw() {
   Wire.beginTransmission(AS5600_ADDR);
-  Wire.write(0x0C); 
-  if (Wire.endTransmission(false) != 0) return -1; 
+  Wire.write(0x0E);
+  if (Wire.endTransmission() != 0) return -1;
   
   Wire.requestFrom(AS5600_ADDR, 2);
-  if (Wire.available() == 2) {
-    uint16_t highByte = Wire.read();
-    uint16_t lowByte = Wire.read();
-    return (highByte << 8) | lowByte; 
+  if (Wire.available() <= 2) {
+    uint8_t hi = Wire.read() & 0x0F;
+    uint8_t lo = Wire.read();
+    return (hi << 8) | lo;
   }
   return -1;
 }
 
-// ฟังก์ชันสำหรับสั่งงาน Servo ผ่าน PCA9685
-void setServoAngle(uint8_t channel, uint8_t angle) {
-  // แปลงค่าองศา (0-180) เป็นความยาวคลื่น PWM (SERVOMIN-SERVOMAX)
-  uint16_t pulseLength = map(angle, 0, 180, SERVOMIN, SERVOMAX);
-  pwm.setPWM(channel, 0, pulseLength);
-}
-
-void setup() {
-  Serial.begin(115200);
-  Wire.begin(); 
+// --- Servo (PCA9685) Setup แบบไม่ต้องง้อ Library ---
+void initPCA9685(uint8_t mux_ch) {
+  selectMuxChannel(mux_ch);
   
-  // เริ่มต้นการทำงานของบอร์ด PCA9685
-  pwm.begin();
-  pwm.setOscillatorFrequency(27000000);
-  pwm.setPWMFreq(50); // ตั้งค่าความถี่ที่ 50Hz (มาตรฐานของ Analog Servo)
-  delay(10);
+  // 1. Sleep
+  Wire.beginTransmission(PCA9685_ADDR);
+  Wire.write(0x00); // MODE1
+  Wire.write(0x10); 
+  Wire.endTransmission();
+
+  // 2. Set Prescale for 50Hz (ประมาณ 121)
+  Wire.beginTransmission(PCA9685_ADDR);
+  Wire.write(0xFE); // PRESCALE
+  Wire.write(121);
+  Wire.endTransmission();
+
+  // 3. Wake up & Auto Increment
+  Wire.beginTransmission(PCA9685_ADDR);
+  Wire.write(0x00); // MODE1
+  Wire.write(0xA1);
+  Wire.endTransmission();
+  delay(5);
 }
 
+void setServoAngle(uint8_t mux_ch, uint8_t servo_ch, int angle) {
+  selectMuxChannel(mux_ch);
+  
+  // แปลง 0-180 องศา เป็น Pulse (150 - 600)
+  if(angle < 0) angle = 0;
+  if(angle > 180) angle = 180;
+  uint16_t pulse = 150 + (angle / 180.0) * (600 - 150);
+
+  Wire.beginTransmission(PCA9685_ADDR);
+  Wire.write(0x06 + (4 * servo_ch)); // LED0_ON_L
+  Wire.write(0);           // ON L
+  Wire.write(0);           // ON H
+  Wire.write(pulse & 0xFF); // OFF L
+  Wire.write(pulse >> 8);   // OFF H
+  Wire.endTransmission();
+}
+
+// ----------------- Main Loop -----------------
 void loop() {
-  // --- ส่วนที่ 1: รับคำสั่งจาก Pi ---
-  // รูปแบบคำสั่ง: S<channel>:<angle> เช่น S0:90 หรือ S15:180
+  // 1. เช็คคำสั่งจาก Pi (เช่น S3:0:90 แปลว่า Mux ช่อง 3, Servo ช่อง 0, ไปที่ 90 องศา)
   if (Serial.available() > 0) {
-    String input = Serial.readStringUntil('\n'); 
-    input.trim(); 
-    
-    if (input.startsWith("S")) {
-      int colonIndex = input.indexOf(':'); // หาตำแหน่งของเครื่องหมาย :
-      if (colonIndex != -1) {
-        // แยกตัวเลขช่องและตัวเลของศาออกจากกัน
-        int servoNum = input.substring(1, colonIndex).toInt();
-        int angle = input.substring(colonIndex + 1).toInt();
+    String cmd = Serial.readStringUntil('\n');
+    if (cmd.startsWith("S")) {
+      int c1 = cmd.indexOf(':');
+      int c2 = cmd.lastIndexOf(':');
+      if (c1 > 0 && c2 > c1) {
+        int target_mux = cmd.substring(1, c1).toInt();
+        int servo_ch = cmd.substring(c1 + 1, c2).toInt();
+        int angle = cmd.substring(c2 + 1).toInt();
         
-        // ตรวจสอบความถูกต้องของค่า (ช่อง 0-15, องศา 0-180)
-        if (servoNum >= 0 && servoNum <= 15 && angle >= 0 && angle <= 180) {
-          setServoAngle(servoNum, angle);
+        // ถ้าไม่เคย Init บอร์ด Servo ช่องนี้ ให้ Init ก่อน
+        if (!pca_initialized[target_mux]) {
+          initPCA9685(target_mux);
+          pca_initialized[target_mux] = true;
         }
+        setServoAngle(target_mux, servo_ch, angle);
       }
     }
   }
 
-  // --- ส่วนที่ 2: อ่าน AS5600 ทั้ง 8 ช่องและส่งเป็น JSON ---
-  String jsonOutput = "{\"as5600\": [";
+  // 2. สแกน 8 ช่องแล้วส่งสถานะให้ Pi ทุกรอบ
+  String mapData = "\"devices\": {";
+  String as5600Data = "\"as5600\": [";
   
-  for (uint8_t chan = 0; chan < 8; chan++) {
-    selectI2CChannel(chan);
-    int rawValue = readAS5600Raw();
-    jsonOutput += String(rawValue);
-    if (chan < 7) jsonOutput += ", ";
+  for (int i = 0; i < 8; i++) {
+    selectMuxChannel(i);
+    bool hasAS5600 = pingDevice(AS5600_ADDR);
+    bool hasServo = pingDevice(PCA9685_ADDR);
+    
+    mapData += "\"" + String(i) + "\":";
+    if (hasAS5600) mapData += "\"as5600\"";
+    else if (hasServo) mapData += "\"servo\"";
+    else mapData += "\"none\"";
+    
+    if (hasAS5600) as5600Data += String(readAS5600Raw());
+    else as5600Data += "0";
+    
+    if (i < 7) { mapData += ", "; as5600Data += ", "; }
   }
-  jsonOutput += "]}";
+  mapData += "}"; as5600Data += "]";
   
-  Serial.println(jsonOutput);
-  delay(50); 
+  Serial.println("{" + mapData + ", " + as5600Data + "}");
+  delay(15); // รันเร็วๆ ได้เลย ประมาณ 60Hz
 }

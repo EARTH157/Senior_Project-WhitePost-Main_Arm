@@ -3,8 +3,6 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32, Bool
 import RPi.GPIO as GPIO
-import fcntl
-import smbus2
 import time
 import sys
 import threading
@@ -19,12 +17,6 @@ PIN_DIR = 9
 PIN_PUL = 10
 PIN_LIMIT = 24
 ENA_ACTIVE_HIGH = False 
-
-# I2C Sensor (AS5600)
-I2C_BUS_ID = 1
-MUX_ADDR = 0x70
-AS5600_ADDR = 0x36
-MUX_CHANNEL = 2  # Joint 2 Channel
 
 # PID Parameters
 KP = 0.8   # เพิ่มเพื่อให้ตอบสนองแรงขึ้น (เดิม 0.50)
@@ -73,15 +65,11 @@ class Joint2Driver(Node):
         GPIO.setup(PIN_DIR, GPIO.OUT, initial=GPIO.LOW)
         GPIO.setup(PIN_PUL, GPIO.OUT, initial=GPIO.LOW)
         GPIO.setup(PIN_LIMIT, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        
-        # Setup I2C
-        try:
-            self.bus = smbus2.SMBus(I2C_BUS_ID)
-            if self.read_as5600() is None: raise Exception("Sensor Error")
-            self.get_logger().info("✅ Sensor OK.")
-        except Exception as e:
-            self.get_logger().fatal(f"🛑 Sensor Failed: {e}")
-            sys.exit(1)
+
+        # (เพิ่มตรงที่เคยเป็น Setup I2C)
+        self.latest_raw_sensor_val = None
+        # สมมติเป็น joint1_node ก็ subscribe '/sensor/as5600/joint1' (แก้ชื่อเลขให้ตรงตามไฟล์)
+        self.create_subscription(Float32, '/sensor/as5600/joint2', self.raw_sensor_callback, 10)
 
         # ROS Setup
         self.create_subscription(Float32, 'joint2/set_target_angle', self.target_callback, 10)
@@ -107,6 +95,9 @@ class Joint2Driver(Node):
 
         if not self.is_homed:
             self.get_logger().info("⏳ Waiting for calibration command... (Topic: /joint1/calibrate)")
+
+    def raw_sensor_callback(self, msg: Float32):
+        self.latest_raw_sensor_val = msg.data
 
     # ---------------------------------------------------------
     # 💾 STATE CHECKING
@@ -311,54 +302,43 @@ class Joint2Driver(Node):
         return None
 
     def read_as5600(self):
+        # ถ้าระบบยังไม่ได้รับค่าจาก ESP32 ผ่าน Topic เลย ให้ส่งค่า None กลับไปก่อน
+        if self.latest_raw_sensor_val is None:
+            return None
+            
         real_angle = None
-        
-        # [3] เริ่มจองคิว (Lock)
-        fcntl.flock(self.lock_file, fcntl.LOCK_EX)
+        # ดึงค่าล่าสุดที่ได้รับจาก ESP32 Bridge
+        current_raw = self.latest_raw_sensor_val
         
         try:
-            self.bus.write_byte(0x70, 1 << 2)
-            hi = self.bus.read_byte_data(AS5600_ADDR, 0x0E) & 0x0F
-            lo = self.bus.read_byte_data(AS5600_ADDR, 0x0F)
-            current_raw = (hi << 8) | lo
-            
             # ==========================================
             # ⚙️ 3-POINT CALIBRATION (Piecewise)
             # ==========================================
             # กำหนดจุดอ้างอิง 3 จุดตามที่คุณวัดจริง
             P1_RAW = 1871.0   # จุดที่ 0 องศา
             P2_RAW = 2800.0   # จุดที่ 90 องศา
-            P3_RAW = 3853.0   # จุดที่ 180 องศา (Limit Switch)
+            P3_RAW = 2221.0   # จุดที่ 180 องศา (Limit Switch)
             
             P1_ANG = 0.0
             P2_ANG = 90.0
             P3_ANG = 180.0
             
-            real_angle = 0.0
-            
             # 📐 คำนวณแบบแยกช่วง (Piecewise Interpolation)
-            
             if current_raw <= P2_RAW:
                 # --- [ช่วงที่ 1: 0 ถึง 90 องศา] ---
-                # ใช้ความชันของช่วงแรก
-                # สูตร: angle = 0 + (raw - 1883) * (90 / (2656-1883))
                 slope1 = (P2_ANG - P1_ANG) / (P2_RAW - P1_RAW)
                 real_angle = P1_ANG + slope1 * (current_raw - P1_RAW)
                 
             else:
                 # --- [ช่วงที่ 2: 90 ถึง 180 องศา] ---
-                # ใช้ความชันของช่วงหลัง (ซึ่งชันน้อยกว่า)
-                # สูตร: angle = 90 + (raw - 2656) * (90 / (4033-2656))
                 slope2 = (P3_ANG - P2_ANG) / (P3_RAW - P2_RAW)
                 real_angle = P2_ANG + slope2 * (current_raw - P2_RAW)
 
         except Exception as e:
-            pass # หรือ Log error
-        finally:
-            # [4] คืนบัตรคิว (Unlock)
-            fcntl.flock(self.lock_file, fcntl.LOCK_UN)
+            # แจ้งเตือนหากเกิดข้อผิดพลาดในการคำนวณ
+            self.get_logger().error(f"Sensor Math Error: {e}")
             
-        return real_angle # ส่งค่าที่คำนวณแล้วกลับไป
+        return real_angle # ส่งค่าองศาที่คำนวณแล้วกลับไป
 
     def report_status(self):
         # -------------------------------------------------------------

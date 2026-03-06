@@ -13,7 +13,6 @@ motor_control/__init__.py
 motor_control/joint1_node.py
 motor_control/joint2_node.py
 motor_control/joint3_node.py
-motor_control/servo_driver_i2c.py
 motor_control/stepper_joint1.py
 motor_control/stepper_joint2.py
 motor_control/stepper_joint3.py

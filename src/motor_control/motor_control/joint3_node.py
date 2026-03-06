@@ -42,8 +42,6 @@ class Joint3Driver(Node):
     def __init__(self):
         super().__init__('joint3_driver_node')
         
-        self.lock_file = open('/tmp/raspi_i2c_lock', 'w+')
-        
         self.zero_offset = 0.0
         self.is_homed = False
         self.current_target = None 
@@ -54,20 +52,22 @@ class Joint3Driver(Node):
         self.last_pid_time = time.time()
         self.current_delay = MAX_DELAY # 🔥 ตัวแปรสำหรับทำ Soft Start
 
-        # (เพิ่มตรงที่เคยเป็น Setup I2C)
-        self.latest_raw_sensor_val = None
-        # สมมติเป็น joint1_node ก็ subscribe '/sensor/as5600/joint1' (แก้ชื่อเลขให้ตรงตามไฟล์)
-        self.create_subscription(Float32, '/sensor/as5600/joint1', self.raw_sensor_callback, 10)
-        
-        # Setup I2C
-        try:
-            self.bus = smbus2.SMBus(I2C_BUS_ID)
-            if self.read_as5600() is None: raise Exception("Sensor Error")
-            self.get_logger().info("✅ Sensor OK.")
-        except Exception as e:
-            self.get_logger().fatal(f"🛑 Sensor Failed: {e}")
-            sys.exit(1)
+        # -----------------------------------------------------
+        # 🔌 Setup GPIO (เอาส่วนนี้กลับมาครับ สำคัญมาก!)
+        # -----------------------------------------------------
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setwarnings(False)
+        GPIO.setup(PIN_ENA, GPIO.OUT, initial=GPIO.LOW) 
+        GPIO.setup(PIN_DIR, GPIO.OUT, initial=GPIO.LOW)
+        GPIO.setup(PIN_PUL, GPIO.OUT, initial=GPIO.LOW)
+        GPIO.setup(PIN_LIMIT, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
+        # -----------------------------------------------------
+        # 📡 รับค่า Sensor จาก ESP32 Bridge
+        # -----------------------------------------------------
+        self.latest_raw_sensor_val = None
+        self.create_subscription(Float32, '/sensor/as5600/joint3', self.raw_sensor_callback, 10)
+        
         # ROS Setup
         self.create_subscription(Float32, 'joint3/set_target_angle', self.target_callback, 10)
         self.create_subscription(Bool, 'joint3/calibrate', self.calibrate_callback, 10)
@@ -93,8 +93,8 @@ class Joint3Driver(Node):
         self.pid_thread.start()
 
         if not self.is_homed:
-            self.get_logger().info("⏳ Waiting for calibration command... (Topic: /joint1/calibrate)")
-
+            self.get_logger().info("⏳ Waiting for calibration command... (Topic: /joint3/calibrate)")
+            
     def raw_sensor_callback(self, msg: Float32):
         self.latest_raw_sensor_val = msg.data
         

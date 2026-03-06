@@ -1,6 +1,6 @@
 [console_scripts]
+esp32_bridge_node = processor_unit.esp32_bridge_node:main
 main_processor = processor_unit.main_processor:main
-serial_esp32 = processor_unit.serial_esp32:main
 steam_cam = processor_unit.steam_opencv:main
 test = processor_unit.test:main
 test1 = processor_unit.test1:main
