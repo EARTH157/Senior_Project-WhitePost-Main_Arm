@@ -1,0 +1,32 @@
+running egg_info
+writing ../../build/processor_unit/processor_unit.egg-info/PKG-INFO
+writing dependency_links to ../../build/processor_unit/processor_unit.egg-info/dependency_links.txt
+writing entry points to ../../build/processor_unit/processor_unit.egg-info/entry_points.txt
+writing requirements to ../../build/processor_unit/processor_unit.egg-info/requires.txt
+writing top-level names to ../../build/processor_unit/processor_unit.egg-info/top_level.txt
+reading manifest file '../../build/processor_unit/processor_unit.egg-info/SOURCES.txt'
+adding license file 'LICENSE'
+writing manifest file '../../build/processor_unit/processor_unit.egg-info/SOURCES.txt'
+running build
+running build_py
+copying processor_unit/steam_opencv.py -> /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit/build/lib/processor_unit
+running install
+running install_lib
+copying /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit/build/lib/processor_unit/steam_opencv.py -> /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/python3.10/site-packages/processor_unit
+byte-compiling /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/python3.10/site-packages/processor_unit/steam_opencv.py to steam_opencv.cpython-310.pyc
+running install_data
+copying processor_unit/best.pt -> /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/share/processor_unit
+copying processor_unit/last.pt -> /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/share/processor_unit
+creating /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/share/processor_unit/launch
+running install_egg_info
+removing '/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/python3.10/site-packages/processor_unit-0.0.0-py3.10.egg-info' (and everything under it)
+Copying ../../build/processor_unit/processor_unit.egg-info to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/python3.10/site-packages/processor_unit-0.0.0-py3.10.egg-info
+running install_scripts
+Installing esp32_bridge_node script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/processor_unit
+Installing main_processor script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/processor_unit
+Installing steam_cam script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/processor_unit
+Installing test script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/processor_unit
+Installing test1 script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/processor_unit
+Installing uart_command_and_status_to_pi5 script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/processor_unit
+Installing uart_zero_two_w script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/processor_unit
+writing list of installed files to '/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit/install.log'

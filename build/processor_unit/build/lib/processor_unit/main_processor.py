@@ -14,6 +14,10 @@ class Main_Processor(Node):
     def __init__(self):
         super().__init__('Main_processor_node')
         
+        # 🔥 สวิตช์โหมด Simulation (เปลี่ยนเป็น False เมื่อเอาไปต่อกับบอร์ดจริง)
+        self.declare_parameter('simulation_mode', False)
+        self.simulation_mode = self.get_parameter('simulation_mode').value
+        
         # --- Robot Parameters (หน่วย mm) ---
         self.l1 = 90.0   # Base height
         self.l2 = 575.0  # Link 2
@@ -34,8 +38,8 @@ class Main_Processor(Node):
         self.move_mode = 'LINEAR' # 'LINEAR' หรือ 'JOINT'
         
         self.is_moving = False   
-        self.speed_mm_s = 300.0  
-        self.speed_joint_deg_s = 100.0  
+        self.speed_mm_s = 50.0  
+        self.speed_joint_deg_s = 60.0  
         self.timer_period = 0.02 
         self.step_total = 0
         self.step_current = 0
@@ -53,9 +57,24 @@ class Main_Processor(Node):
         self.cal_status = {1: None, 2: None, 3: None} 
         self.cal_state = 'INIT_WAIT'
         self.system_ready = False
-        
         self.next_state_after_j1 = None
         self.next_state_after_j2 = None
+        
+        # 🔥 [เพิ่มใหม่] ถ้าอยู่ในโหมดซิม ให้หลอกระบบว่า Calibrate เสร็จแล้วและพร้อมทำงานทันที
+        if self.simulation_mode:
+            self.get_logger().info("💻 ใช้งานโหมด SIMULATION: ข้ามการรอเซ็นเซอร์ฮาร์ดแวร์")
+            self.system_ready = True
+            self.cal_state = 'READY'
+            # จำลองค่าเริ่มต้นให้ระบบ
+            self.current_angles = {1: 90.0, 2: 180.0, 3: 10.0}
+            self.current_joints = [90.0, 180.0, 10.0, 90.0, 90.0]
+            self.current_pos = self.calculate_forward_kinematics(90.0, 180.0, 10.0)
+            
+            # 📍 เพิ่มบรรทัดนี้เพื่อหยุดตัวนับเวลา Calibrate ไม่ให้มันทำงานค้างไว้
+            if hasattr(self, 'cal_timer'):
+                self.cal_timer.cancel()
+            
+            self.get_logger().info("✅ Simulation Ready: รอรับพิกัดที่ /target_position")
         
         # --- ตัวแปรสำหรับระบบ Camera Tracking ---
         self.is_tracking_mode = False  
@@ -238,9 +257,9 @@ class Main_Processor(Node):
             return
 
         # 🔥 ถ้ากำลังพักหน่วงเวลา หรือกำลังเดินอยู่ ให้ Ignore
-        if self.is_moving or self.delay_ticks > 0:
-            self.get_logger().warn("⚠️ Ignore: Robot is moving or waiting")
-            return
+        #if self.is_moving or self.delay_ticks > 0:
+        #    self.get_logger().warn("⚠️ Ignore: Robot is moving or waiting")
+        #    return
 
         err_x = msg.x       
         err_depth = msg.y   
@@ -294,8 +313,8 @@ class Main_Processor(Node):
         # คำนวณเวลาเดินทางใน 1 รอบ 
         max_angle_diff = max([abs(t - c) for t, c in zip(self.target_joints, self.current_joints)])
         duration = max_angle_diff / self.speed_joint_deg_s
-        if duration < 0.2: 
-             duration = 0.2
+        if duration < 0.05: 
+             duration = 0.05
              
         self.step_total = int(duration / self.timer_period)
         if self.step_total == 0: self.step_total = 1
@@ -591,6 +610,8 @@ class Main_Processor(Node):
                 interp_joints.append(j_val)
             self.publish_joints(interp_joints)
             self.current_joints = interp_joints
+            # 🔥 [เพิ่ม] อัปเดตพิกัด XYZ ปัจจุบันทันที เพื่อให้แทรกคำสั่งกลางอากาศได้เนียนๆ
+            self.current_pos = self.calculate_forward_kinematics(interp_joints[0], interp_joints[1], interp_joints[2])
 
         # --- 2. การจัดการเมื่อเดินสุดทาง (t = 1.0) ---
         if t == 1.0:
@@ -658,8 +679,9 @@ class Main_Processor(Node):
                 self.is_moving = False 
                 
                 if self.is_tracking_mode:
-                    # หน่วงเวลา 25 รอบ (0.5 วินาที) ก่อนรับเป้าหมายใหม่
-                    self.delay_ticks = 25
+                    # 🔥 [แก้] เอา delay ออก แล้วส่งสัญญาณให้กล้องยิงเฟรมถัดมาได้เลย!
+                    self.delay_ticks = 0 
+                    self.pub_tracking_ready.publish(Bool(data=True))
             
     def calculate_forward_kinematics(self, j1_deg, j2_deg, j3_deg):
         t1 = math.radians(j1_deg)
@@ -720,30 +742,49 @@ class Main_Processor(Node):
         theta3_raw = theta3
         theta3 = math.pi + theta3
 
-        if -theta3_raw > theta2: theta4_raw = -(theta2 + theta3_raw) + (math.pi / 2)  + (5 * (math.pi / 180.0))
-        elif -theta3_raw == theta2: theta4_raw = math.pi / 2 + (5 * (math.pi / 180.0))
+        # --- คำนวณ Theta 4 ---
+        if -theta3_raw > theta2: 
+            theta4_raw = -(theta2 + theta3_raw) + (math.pi / 2)
+        elif -theta3_raw == theta2: 
+            theta4_raw = math.pi / 2
         else:
             theta4_raw = (theta2 + theta3_raw)
-            theta4_raw = (math.pi / 2) - theta4_raw + (5 * (math.pi / 180.0))
+            theta4_raw = (math.pi / 2) - theta4_raw
+
+        # 🔥 เพิ่มเงื่อนไข Simulation สำหรับ Joint 4 (5 องศา)
+        if not self.simulation_mode:
+            theta4_raw += (5 * (math.pi / 180.0))
             
         theta4 = normalize_angle_positive(theta4_raw)
         theta1_for_5 = theta1
 
+        # --- คำนวณ Theta 5 ---
         if y > 0:
             if x >= 0:
                 if abs(math.degrees(theta1_for_5) - 90.0) < 0.01: theta1_for_5 = 0.0
                 theta5_raw = (math.pi / 2) - theta1_for_5
                 theta5_phi = math.pi - (theta5_raw + (2*theta1_for_5))
-                theta5_servo = theta5_raw + theta1_for_5 + theta5_phi + (7 * (math.pi / 180.0))
-                if x == 0: theta5_servo = math.pi/2 + (7 * (math.pi / 180.0))
+                theta5_servo = theta5_raw + theta1_for_5 + theta5_phi
+                if x == 0: theta5_servo = math.pi/2
+                
+                # 🔥 เพิ่มเงื่อนไข Simulation สำหรับ Joint 5 (7 องศา)
+                if not self.simulation_mode:
+                    theta5_servo += (7 * (math.pi / 180.0))
+                    
                 theta5 = normalize_angle_positive(theta5_servo) 
             else:
-                theta5_servo = math.pi - theta1_for_5 + (7 * (math.pi / 180.0))
+                theta5_servo = math.pi - theta1_for_5
+                if not self.simulation_mode:
+                    theta5_servo += (7 * (math.pi / 180.0))
                 theta5 = normalize_angle_positive(theta5_servo)
         else:
             theta5_raw = (math.pi / 2) - theta1_for_5
             theta5_phi = math.pi - (theta5_raw + (2*theta1_for_5))
-            theta5_servo = math.pi + (theta5_raw + theta1_for_5 + theta5_phi) + (7 * (math.pi / 180.0))
+            theta5_servo = math.pi + (theta5_raw + theta1_for_5 + theta5_phi)
+            
+            if not self.simulation_mode:
+                theta5_servo += (7 * (math.pi / 180.0))
+                
             theta5 = normalize_angle_positive(theta5_servo)
         
         angle_joint1 = math.degrees(theta1)
@@ -761,21 +802,24 @@ class Main_Processor(Node):
         msg = JointState()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.name = ['joint1', 'joint2', 'joint3', 'joint4', 'joint5']
-        msg.position = joints
+        
+        # 🔥 แปลงจาก องศา (Degree) เป็น เรเดียน (Radian) เพื่อให้ RViz แสดงผลได้ถูกต้อง
+        msg.position = [math.radians(j) for j in joints] 
         self.publisher_.publish(msg)
         
-        msg_float = Float32()
-        msg_float.data = float(joints[0])
-        self.publisher1_.publish(msg_float) 
-        msg_float.data = float(joints[1])
-        self.publisher2_.publish(msg_float) 
-        msg_float.data = float(joints[2])
-        self.publisher3_.publish(msg_float) 
+        # 🔥 ถ้าเป็นโหมดซิม ไม่ต้องส่งข้อมูลความถี่สูงๆ ไปกวนระบบ Topic ของบอร์ดจริง
+        if not self.simulation_mode:
+            msg_float = Float32()
+            msg_float.data = float(joints[0])
+            self.publisher1_.publish(msg_float) 
+            msg_float.data = float(joints[1])
+            self.publisher2_.publish(msg_float) 
+            msg_float.data = float(joints[2])
+            self.publisher3_.publish(msg_float) 
 
-        msg_servo_combined = Float32MultiArray()
-        msg_servo_combined.data = [0.0, 0.0, float(joints[3]), 1.0, float(joints[4])]
-        self.publisher_servo_.publish(msg_servo_combined)
-
+            msg_servo_combined = Float32MultiArray()
+            msg_servo_combined.data = [0.0, 0.0, float(joints[3]), 1.0, float(joints[4])]
+            self.publisher_servo_.publish(msg_servo_combined)
 def main(args=None):
     rclpy.init(args=args)
     node = Main_Processor()

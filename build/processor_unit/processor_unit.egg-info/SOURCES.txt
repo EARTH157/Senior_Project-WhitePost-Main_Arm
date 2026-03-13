@@ -12,7 +12,9 @@ setup.py
 processor_unit/__init__.py
 processor_unit/camera_back.py
 processor_unit/camera_front.py
+processor_unit/elevator_btn_4_best.pt
 processor_unit/esp32_bridge_node.py
+processor_unit/last.pt
 processor_unit/main_processor.py
 processor_unit/steam_opencv.py
 processor_unit/uart_command_and_status_to_pi5.py

@@ -9,6 +9,7 @@ setup.py
 ../../build/launch_project/launch_project.egg-info/requires.txt
 ../../build/launch_project/launch_project.egg-info/top_level.txt
 ../../build/launch_project/launch_project.egg-info/zip-safe
+launch/gazebo_launch.py
 launch/launch_project.py
 launch_project/__init__.py
 resource/launch_project

@@ -1,0 +1,28 @@
+[1.298s] Invoking command in '/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/src/processor_unit': PYTHONPATH=/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/processor_unit build --build-base /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit/build install --record /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit/install.log --single-version-externally-managed install_data
+[1.554s] running egg_info
+[1.555s] writing ../../build/processor_unit/processor_unit.egg-info/PKG-INFO
+[1.555s] writing dependency_links to ../../build/processor_unit/processor_unit.egg-info/dependency_links.txt
+[1.556s] writing entry points to ../../build/processor_unit/processor_unit.egg-info/entry_points.txt
+[1.556s] writing requirements to ../../build/processor_unit/processor_unit.egg-info/requires.txt
+[1.556s] writing top-level names to ../../build/processor_unit/processor_unit.egg-info/top_level.txt
+[1.559s] reading manifest file '../../build/processor_unit/processor_unit.egg-info/SOURCES.txt'
+[1.559s] adding license file 'LICENSE'
+[1.561s] writing manifest file '../../build/processor_unit/processor_unit.egg-info/SOURCES.txt'
+[1.561s] running build
+[1.561s] running build_py
+[1.562s] running install
+[1.562s] running install_lib
+[1.565s] running install_data
+[1.565s] running install_egg_info
+[1.568s] removing '/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/python3.10/site-packages/processor_unit-0.0.0-py3.10.egg-info' (and everything under it)
+[1.568s] Copying ../../build/processor_unit/processor_unit.egg-info to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/python3.10/site-packages/processor_unit-0.0.0-py3.10.egg-info
+[1.569s] running install_scripts
+[1.605s] Installing esp32_bridge_node script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/processor_unit
+[1.605s] Installing main_processor script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/processor_unit
+[1.605s] Installing steam_cam script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/processor_unit
+[1.605s] Installing test script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/processor_unit
+[1.605s] Installing test1 script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/processor_unit
+[1.606s] Installing uart_command_and_status_to_pi5 script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/processor_unit
+[1.606s] Installing uart_zero_two_w script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/processor_unit
+[1.606s] writing list of installed files to '/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit/install.log'
+[1.664s] Invoked command in '/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/src/processor_unit' returned '0': PYTHONPATH=/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/processor_unit build --build-base /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit/build install --record /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit/install.log --single-version-externally-managed install_data

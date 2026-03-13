@@ -124,3 +124,5 @@ screen /dev/ttyUSB0 115200
 ระบบจะถามว่าต้องการปิดไหม (Kill window y/n?) ให้กด y เพื่อยืนยันครับ
 
 ros2 launch whitepost_description display.launch.py
+
+ros2 launch launch_project gazebo_launch.py
