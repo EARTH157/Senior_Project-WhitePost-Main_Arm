@@ -81,6 +81,8 @@ class Main_Processor(Node):
         self.tracking_kp_xy = 0.05  
         self.tracking_kp_depth = 0.2 
         self.tracking_max_step = 3.0   
+        self.RADIUS_DEAD_ZONE = 40.0  # 👈 เพิ่มบรรทัดนี้ครับ! (ค่าเดียวกับในกล้อง)
+        self.lock_start_time = 0.0  # 👈 [เพิ่มบรรทัดนี้] เอาไว้เก็บเวลาตอนเป้าเริ่มนิ่ง
         
         # --- ตัวแปรสำหรับภารกิจกดปุ่มอัตโนมัติ ---
         self.press_sequence_state = 'IDLE' 
@@ -264,17 +266,45 @@ class Main_Processor(Node):
         err_x = msg.x       
         err_depth = msg.y   
         err_y = msg.z       
-
-        # ถ้าเข้าเป้าแล้ว ให้บอกกล้อง และเริ่ม State Machine กดปุ่ม
-        if err_depth == 0.0 and err_x == 0.0 and err_y == 0.0:
-            if self.press_sequence_state == 'IDLE':
-                self.get_logger().info("🎯 ล็อกเป้าสำเร็จ! เริ่มภารกิจกดปุ่ม...")
-                self.is_tracking_mode = False # ปิดการล็อกเป้าจากกล้องชั่วคราว ไม่ให้กวนกัน
-                self.press_sequence_state = 'DELAY_1'
-                self.state_start_time = time.time()
+        
+        limit = 20.0 # (ปรับความแคบ/กว้างของเป้าได้ตามต้องการ)
+        
+        # --- 1. ถ้าเป้าหมายเข้ามาอยู่ตรงกลาง ---
+        if abs(err_x) <= limit and abs(err_y) <= limit and abs(err_depth) <= self.RADIUS_DEAD_ZONE:
+            self.is_moving = False  # สั่งเบรกหยุดขยับ
+            
+            # ถ้าเพิ่งเข้ามาตรงกลางครั้งแรก ให้เริ่มจับเวลา
+            if self.lock_start_time == 0.0:
+                self.lock_start_time = time.time()
+                self.get_logger().info("🎯 [LOCKED] เป้าตรงกลาง! กำลังจ้องจับเวลา 2 วินาที...")
                 
+            # ถ้านิ่งอยู่แล้ว ให้เช็คว่าครบ 2 วิหรือยัง
+            else:
+                elapsed_time = time.time() - self.lock_start_time
+                if elapsed_time >= 2.0:
+                    if self.press_sequence_state == 'IDLE':
+                        self.get_logger().info("✅ นิ่งครบ 2 วินาทีแล้ว! มั่นใจ! ยื่นมือไปกดเลย!")
+                        self.is_tracking_mode = False # ปิดกล้องชั่วคราวตอนเอื้อมมือ
+                        self.lock_start_time = 0.0 # รีเซ็ตเวลาทิ้ง
+                        
+                        # ข้ามสถานะ DELAY_1 ไปเริ่มพุ่งชนเลย
+                        self.press_sequence_state = 'PRESSING'
+                        self.pre_press_pos = list(self.current_pos)
+                        self.force_detected = False
+                        
+                        temp_speed = self.speed_mm_s
+                        self.speed_mm_s = 50.0 # ความเร็วตอนยื่นมือกด
+                        self.move_to_offset(0.0, 150.0, 0.0) 
+                        self.speed_mm_s = temp_speed 
+                        
             self.pub_tracking_ready.publish(Bool(data=True))
             return
+
+        # --- 2. ถ้าเป้าหมายขยับหนีออกไปจากตรงกลาง ---
+        else:
+            if self.lock_start_time != 0.0:
+                self.get_logger().warn("🏃 เป้าหมายขยับหนี! ยกเลิกการจับเวลา กลับไป Track ต่อ...")
+                self.lock_start_time = 0.0 # รีเซ็ตตัวจับเวลาทิ้งทันที
 
         # คำนวณ Delta
         delta_x = err_x * self.tracking_kp_xy      
@@ -365,47 +395,39 @@ class Main_Processor(Node):
     def process_button_press_sequence(self):
         current_time = time.time()
         
-        if self.press_sequence_state == 'DELAY_1':
-            if current_time - self.state_start_time >= 2.0:
-                self.get_logger().info("⬆️ ชลอครบ 2 วินาที... ขยับแกน Z ขึ้น 2 cm (20 mm)")
-                self.move_to_offset(0.0, 0.0, 20.0)
-                self.press_sequence_state = 'WAIT_MOVE_Z'
+        # ⚠️ (ลบบล็อก if self.press_sequence_state == 'DELAY_1': ทิ้งไปเลย)
                 
-        elif self.press_sequence_state == 'WAIT_MOVE_Z':
-            if not self.is_moving: # รอจนกว่าจะเคลื่อนที่เสร็จ
-                self.get_logger().info("⏳ ขยับขึ้นเสร็จแล้ว ชลอ 2 วินาที (DELAY_2)")
-                self.state_start_time = time.time()
-                self.press_sequence_state = 'DELAY_2'
-                
-        elif self.press_sequence_state == 'DELAY_2':
-            if current_time - self.state_start_time >= 2.0:
-                self.get_logger().info("👉 เริ่มกดปุ่ม! (เคลื่อนที่แกน Y จนกว่าจะเจอแรงต้าน)")
-                self.pre_press_pos = list(self.current_pos) # จำตำแหน่งก่อนกดไว้
-                self.force_detected = False # รีเซ็ตเซ็นเซอร์ก่อนเริ่มลุย
-                # สั่งเดินหน้าล่วงหน้าไป 150 mm (ปรับระยะสุดแขนตามจริงได้ครับ)
-                self.move_to_offset(0.0, 150.0, 0.0) 
-                self.press_sequence_state = 'PRESSING'
-                
-        elif self.press_sequence_state == 'PRESSING':
+        # 1. จังหวะกำลังยื่นแขนไปกด (เปลี่ยนเป็น if ได้เลย)
+        if self.press_sequence_state == 'PRESSING':
             # เช็คว่าเซ็นเซอร์ชนหรือยัง (Interrupt!)
             if self.force_detected:
                 self.get_logger().info("🚨 Force Active! ชนแล้ว กำลังถอยกลับ...")
-                self.is_moving = False # ยกเลิกการเคลื่อนที่ปัจจุบันทันที
+                self.is_moving = False 
+                
+                temp_speed = self.speed_mm_s
+                self.speed_mm_s = 50.0 
                 self.move_to_absolute(self.pre_press_pos[0], self.pre_press_pos[1], self.pre_press_pos[2])
-                self.press_sequence_state = 'RETRACTING'
+                self.speed_mm_s = temp_speed
+                
+                self.press_sequence_state = 'WAIT_FOR_RETRACT'
                 
             # ถ้าเดินจนสุดระยะที่เราเผื่อไว้ 150mm แต่ยังไม่ชน
             elif not self.is_moving:
                 self.get_logger().warn("⚠️ กดจนสุดแขนแล้วแต่ไม่เจอเซ็นเซอร์ ถอยกลับ...")
+                temp_speed = self.speed_mm_s
+                self.speed_mm_s = 50.0
                 self.move_to_absolute(self.pre_press_pos[0], self.pre_press_pos[1], self.pre_press_pos[2])
-                self.press_sequence_state = 'RETRACTING'
+                self.speed_mm_s = temp_speed
                 
-        elif self.press_sequence_state == 'RETRACTING':
+                self.press_sequence_state = 'WAIT_FOR_RETRACT'
+                
+        # 2. รอให้ถอยเสร็จจริงๆ
+        elif self.press_sequence_state == 'WAIT_FOR_RETRACT':
             if not self.is_moving:
-                self.get_logger().info("✅ ถอยกลับมาจุดเดิมเสร็จสิ้น! จบภารกิจ")
+                self.get_logger().info("✅ ถอยกลับถึงจุดปลอดภัยแล้ว!")
                 self.press_sequence_state = 'IDLE'
-                # ถ้าอยากให้พอกดเสร็จแล้ว กลับมารอรับเป้าหมายจากกล้องใหม่ ให้ Uncomment บรรทัดล่างครับ
-                # self.is_tracking_mode = True
+                # ถ้าอยากให้ Track ต่อทันที
+                #self.is_tracking_mode = True
     
     def calibration_routine(self):
         if self.system_ready: return
@@ -586,19 +608,20 @@ class Main_Processor(Node):
             t = 1.0
 
         # --- คำนวณและสั่งขยับ ---
+        # --- คำนวณและสั่งขยับ ---
         if self.move_mode == 'LINEAR':
             interp_x = self.start_pos[0] + (self.target_pos[0] - self.start_pos[0]) * t
             interp_y = self.start_pos[1] + (self.target_pos[1] - self.start_pos[1]) * t
             interp_z = self.start_pos[2] + (self.target_pos[2] - self.start_pos[2]) * t
             try:
                 joints = self.calculate_inverse_kinematics(interp_x, interp_y, interp_z)
-                for i in range(5):
-                    if abs(joints[i] - self.current_joints[i]) > 5.0:
-                        self.is_moving = False
-                        self.homing_phase = 0
-                        return 
+                # 🔥 [ลบการตรวจจับ > 5.0 ทิ้ง] เพราะมันชอบไปสกัดขาหุ่นตอนวิ่งแนวตรงไกลๆ ทำให้แขนค้าง
                 self.publish_joints(joints)
                 self.current_joints = joints
+                
+                # ✅ [แก้ไขบั๊กสำคัญ!] ต้องบันทึกพิกัด XYZ ตามไปด้วยเสมอ ไม่งั้นหุ่นจะหลงทิศตอนถูกเบรก!
+                self.current_pos = [interp_x, interp_y, interp_z] 
+                
             except ValueError as e:
                 self.is_moving = False
                 self.homing_phase = 0

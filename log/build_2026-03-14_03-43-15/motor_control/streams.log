@@ -1,0 +1,25 @@
+[1.330s] Invoking command in '/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/motor_control': PYTHONPATH=/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/motor_control/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/motor_control/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/motor_control/build --no-deps symlink_data --force
+[1.624s] running develop
+[1.805s] running egg_info
+[1.805s] writing motor_control.egg-info/PKG-INFO
+[1.805s] writing dependency_links to motor_control.egg-info/dependency_links.txt
+[1.805s] writing entry points to motor_control.egg-info/entry_points.txt
+[1.805s] writing requirements to motor_control.egg-info/requires.txt
+[1.805s] writing top-level names to motor_control.egg-info/top_level.txt
+[1.807s] reading manifest file 'motor_control.egg-info/SOURCES.txt'
+[1.808s] writing manifest file 'motor_control.egg-info/SOURCES.txt'
+[1.810s] running build_ext
+[1.810s] Creating /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/motor_control/lib/python3.10/site-packages/motor-control.egg-link (link to .)
+[1.811s] Installing joint1_node script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/motor_control/lib/motor_control
+[1.811s] Installing joint2_node script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/motor_control/lib/motor_control
+[1.811s] Installing joint3_node script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/motor_control/lib/motor_control
+[1.811s] Installing servodrive script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/motor_control/lib/motor_control
+[1.811s] Installing stepmotor1 script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/motor_control/lib/motor_control
+[1.812s] Installing stepmotor2 script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/motor_control/lib/motor_control
+[1.812s] Installing stepmotor3 script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/motor_control/lib/motor_control
+[1.812s] 
+[1.812s] Installed /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/motor_control
+[1.812s] running symlink_data
+[1.812s] symbolically linking /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/motor_control/resource/motor_control -> /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/motor_control/share/ament_index/resource_index/packages
+[1.812s] symbolically linking /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/motor_control/package.xml -> /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/motor_control/share/motor_control
+[1.860s] Invoked command in '/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/motor_control' returned '0': PYTHONPATH=/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/motor_control/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/motor_control/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/motor_control/build --no-deps symlink_data --force

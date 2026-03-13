@@ -1,0 +1,27 @@
+[1.362s] Invoking command in '/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit': PYTHONPATH=/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit/build --no-deps symlink_data --force
+[1.647s] running develop
+[1.824s] running egg_info
+[1.824s] writing processor_unit.egg-info/PKG-INFO
+[1.824s] writing dependency_links to processor_unit.egg-info/dependency_links.txt
+[1.824s] writing entry points to processor_unit.egg-info/entry_points.txt
+[1.825s] writing requirements to processor_unit.egg-info/requires.txt
+[1.825s] writing top-level names to processor_unit.egg-info/top_level.txt
+[1.827s] reading manifest file 'processor_unit.egg-info/SOURCES.txt'
+[1.828s] writing manifest file 'processor_unit.egg-info/SOURCES.txt'
+[1.830s] running build_ext
+[1.830s] Creating /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/python3.10/site-packages/processor-unit.egg-link (link to .)
+[1.831s] Installing esp32_bridge_node script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/processor_unit
+[1.831s] Installing main_processor script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/processor_unit
+[1.832s] Installing steam_cam script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/processor_unit
+[1.833s] Installing test script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/processor_unit
+[1.833s] Installing test1 script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/processor_unit
+[1.833s] Installing uart_command_and_status_to_pi5 script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/processor_unit
+[1.833s] Installing uart_zero_two_w script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/processor_unit
+[1.833s] 
+[1.833s] Installed /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit
+[1.834s] running symlink_data
+[1.834s] symbolically linking /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit/resource/processor_unit -> /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/share/ament_index/resource_index/packages
+[1.835s] symbolically linking /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit/package.xml -> /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/share/processor_unit
+[1.835s] symbolically linking /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit/processor_unit/elevator_btn_4_best.pt -> /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/share/processor_unit
+[1.835s] symbolically linking /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit/processor_unit/last.pt -> /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/share/processor_unit
+[1.868s] Invoked command in '/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit' returned '0': PYTHONPATH=/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit/build --no-deps symlink_data --force

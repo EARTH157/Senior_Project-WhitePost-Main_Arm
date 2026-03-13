@@ -10,6 +10,7 @@ import os
 from ament_index_python.packages import get_package_share_directory
 import math
 import time
+from std_msgs import msg
 from std_msgs.msg import Bool, String
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 
@@ -244,18 +245,24 @@ class SocketTrackerNode(Node):
                     msg.z = float(error_y) 
                     msg.y = float(error_r) if found_valid_target else 0.0
 
-                    # (ส่วนจัดการ Timeout และการ Publish เหมือนเดิม)
                     current_time = time.time()
                     is_timeout = (self.waiting_for_robot and (current_time - self.last_msg_time > 5.0))
 
                     if self.robot_tracking_state and (not self.waiting_for_robot or is_timeout):
                         if is_timeout: self.waiting_for_robot = False
                         
-                        # ตรวจสอบว่า Error เกิน Dead Zone หรือไม่
-                        if (abs(error_x) > DEAD_ZONE or abs(error_y) > DEAD_ZONE or abs(error_r) > self.RADIUS_DEAD_ZONE):
-                            self.error_pub.publish(msg)
-                            self.last_msg_time = time.time()
-                            self.waiting_for_robot = True 
+                        # ✅ [แก้ไขใหม่] ส่งข้อมูลเสมอ! เพื่อให้สมองกลได้รับค่า (0, 0, 0) เมื่อล็อกเป้าสำเร็จ
+                        self.error_pub.publish(msg)
+                        self.last_msg_time = time.time()
+                        self.waiting_for_robot = True 
+
+                        # แยก Log เพื่อให้ดูง่ายขึ้น
+                        if (abs(error_x) <= DEAD_ZONE and abs(error_y) <= DEAD_ZONE and abs(error_r) <= self.RADIUS_DEAD_ZONE):
+                            msg.x = 0.0
+                            msg.y = 0.0
+                            msg.z = 0.0
+                            self.get_logger().info("🎯 [TARGET LOCKED] Sending Stop/Press signal to Robot")
+                        else:
                             self.get_logger().info(f"📤 Sent Error: X={msg.x:.1f}, Y={msg.y:.1f}, Z={msg.z:.1f}")
 
                     cv2.imshow("Robot View", display_frame)
