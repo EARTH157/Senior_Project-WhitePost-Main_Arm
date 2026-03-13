@@ -1,0 +1,4 @@
+source;share/whitepost_description/local_setup.bash
+source;share/whitepost_description/local_setup.dsv
+source;share/whitepost_description/local_setup.sh
+source;share/whitepost_description/local_setup.zsh

@@ -122,3 +122,5 @@ screen /dev/ttyUSB0 115200
 พิมพ์ปุ่ม k (ตัวเค)
 
 ระบบจะถามว่าต้องการปิดไหม (Kill window y/n?) ให้กด y เพื่อยืนยันครับ
+
+ros2 launch whitepost_description display.launch.py

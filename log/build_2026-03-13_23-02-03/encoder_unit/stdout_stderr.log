@@ -1,0 +1,56 @@
+running egg_info
+creating ../../build/encoder_unit/encoder_unit.egg-info
+writing ../../build/encoder_unit/encoder_unit.egg-info/PKG-INFO
+writing dependency_links to ../../build/encoder_unit/encoder_unit.egg-info/dependency_links.txt
+writing entry points to ../../build/encoder_unit/encoder_unit.egg-info/entry_points.txt
+writing requirements to ../../build/encoder_unit/encoder_unit.egg-info/requires.txt
+writing top-level names to ../../build/encoder_unit/encoder_unit.egg-info/top_level.txt
+writing manifest file '../../build/encoder_unit/encoder_unit.egg-info/SOURCES.txt'
+reading manifest file '../../build/encoder_unit/encoder_unit.egg-info/SOURCES.txt'
+adding license file 'LICENSE'
+writing manifest file '../../build/encoder_unit/encoder_unit.egg-info/SOURCES.txt'
+running build
+running build_py
+creating /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/encoder_unit/build
+creating /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/encoder_unit/build/lib
+creating /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/encoder_unit/build/lib/encoder_unit
+copying encoder_unit/as5600_1.py -> /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/encoder_unit/build/lib/encoder_unit
+copying encoder_unit/as5600_3.py -> /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/encoder_unit/build/lib/encoder_unit
+copying encoder_unit/as5600_4.py -> /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/encoder_unit/build/lib/encoder_unit
+copying encoder_unit/__init__.py -> /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/encoder_unit/build/lib/encoder_unit
+copying encoder_unit/as5600_5.py -> /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/encoder_unit/build/lib/encoder_unit
+copying encoder_unit/as5600_2.py -> /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/encoder_unit/build/lib/encoder_unit
+copying encoder_unit/limit_switch_node.py -> /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/encoder_unit/build/lib/encoder_unit
+running install
+running install_lib
+creating /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/python3.10/site-packages/encoder_unit
+copying /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/encoder_unit/build/lib/encoder_unit/as5600_1.py -> /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/python3.10/site-packages/encoder_unit
+copying /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/encoder_unit/build/lib/encoder_unit/as5600_3.py -> /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/python3.10/site-packages/encoder_unit
+copying /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/encoder_unit/build/lib/encoder_unit/as5600_4.py -> /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/python3.10/site-packages/encoder_unit
+copying /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/encoder_unit/build/lib/encoder_unit/__init__.py -> /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/python3.10/site-packages/encoder_unit
+copying /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/encoder_unit/build/lib/encoder_unit/as5600_5.py -> /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/python3.10/site-packages/encoder_unit
+copying /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/encoder_unit/build/lib/encoder_unit/as5600_2.py -> /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/python3.10/site-packages/encoder_unit
+copying /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/encoder_unit/build/lib/encoder_unit/limit_switch_node.py -> /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/python3.10/site-packages/encoder_unit
+byte-compiling /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/python3.10/site-packages/encoder_unit/as5600_1.py to as5600_1.cpython-310.pyc
+byte-compiling /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/python3.10/site-packages/encoder_unit/as5600_3.py to as5600_3.cpython-310.pyc
+byte-compiling /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/python3.10/site-packages/encoder_unit/as5600_4.py to as5600_4.cpython-310.pyc
+byte-compiling /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/python3.10/site-packages/encoder_unit/__init__.py to __init__.cpython-310.pyc
+byte-compiling /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/python3.10/site-packages/encoder_unit/as5600_5.py to as5600_5.cpython-310.pyc
+byte-compiling /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/python3.10/site-packages/encoder_unit/as5600_2.py to as5600_2.cpython-310.pyc
+byte-compiling /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/python3.10/site-packages/encoder_unit/limit_switch_node.py to limit_switch_node.cpython-310.pyc
+running install_data
+creating /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/share/ament_index
+creating /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/share/ament_index/resource_index
+creating /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/share/ament_index/resource_index/packages
+copying resource/encoder_unit -> /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/share/ament_index/resource_index/packages
+copying package.xml -> /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/share/encoder_unit
+running install_egg_info
+Copying ../../build/encoder_unit/encoder_unit.egg-info to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/python3.10/site-packages/encoder_unit-0.0.0-py3.10.egg-info
+running install_scripts
+Installing as5600_1 script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/encoder_unit
+Installing as5600_2 script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/encoder_unit
+Installing as5600_3 script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/encoder_unit
+Installing as5600_4 script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/encoder_unit
+Installing as5600_5 script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/encoder_unit
+Installing limit script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/encoder_unit
+writing list of installed files to '/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/encoder_unit/install.log'
