@@ -126,3 +126,11 @@ screen /dev/ttyUSB0 115200
 ros2 launch whitepost_description display.launch.py
 
 ros2 launch launch_project gazebo_launch.py
+
+ros2 topic pub --once /robot_command std_msgs/msg/String "{data: 'start'}"
+
+ros2 topic pub --once /robot_command std_msgs/msg/String "{data: 'preset'}"
+
+ros2 topic pub --once /robot_command std_msgs/msg/String "{data: 'track'}"
+
+ros2 topic pub --once /robot_command std_msgs/msg/String "{data: 'home'}"

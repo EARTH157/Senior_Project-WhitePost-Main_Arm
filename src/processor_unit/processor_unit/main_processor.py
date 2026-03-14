@@ -13,8 +13,6 @@ from std_msgs.msg import Float32, Float32MultiArray, Bool, String
 class Main_Processor(Node):
     def __init__(self):
         super().__init__('Main_processor_node')
-        
-        # 🔥 สวิตช์โหมด Simulation (เปลี่ยนเป็น False เมื่อเอาไปต่อกับบอร์ดจริง)
         self.declare_parameter('simulation_mode', False)
         self.simulation_mode = self.get_parameter('simulation_mode').value
         
@@ -43,8 +41,6 @@ class Main_Processor(Node):
         self.timer_period = 0.02 
         self.step_total = 0
         self.step_current = 0
-        
-        # 🔥 เพิ่มตัวแปรสำหรับนับรอบหน่วงเวลา
         self.delay_ticks = 0 
         
         # เพิ่ม 2 ตัวแปรนี้สำหรับการทำ Homing 2 จังหวะ
@@ -60,7 +56,6 @@ class Main_Processor(Node):
         self.next_state_after_j1 = None
         self.next_state_after_j2 = None
         
-        # 🔥 [เพิ่มใหม่] ถ้าอยู่ในโหมดซิม ให้หลอกระบบว่า Calibrate เสร็จแล้วและพร้อมทำงานทันที
         if self.simulation_mode:
             self.get_logger().info("💻 ใช้งานโหมด SIMULATION: ข้ามการรอเซ็นเซอร์ฮาร์ดแวร์")
             self.system_ready = True
@@ -84,6 +79,14 @@ class Main_Processor(Node):
         self.RADIUS_DEAD_ZONE = 40.0  # 👈 เพิ่มบรรทัดนี้ครับ! (ค่าเดียวกับในกล้อง)
         self.lock_start_time = 0.0  # 👈 [เพิ่มบรรทัดนี้] เอาไว้เก็บเวลาตอนเป้าเริ่มนิ่ง
         
+        # 🔥 พิกัด PRESET เตรียมกดปุ่ม (แก้ระยะให้ตรงหน้าลิฟต์ได้เลย)
+        self.preset_x = 300.0
+        self.preset_y = 350.0  
+        self.preset_z = 250.0  
+        
+        # 🔥 ศูนย์กลางรับคำสั่งทั้งหมด
+        self.sub_command = self.create_subscription(String, '/robot_command', self.cb_robot_command, 10)
+        
         # --- ตัวแปรสำหรับภารกิจกดปุ่มอัตโนมัติ ---
         self.press_sequence_state = 'IDLE' 
         self.state_start_time = 0.0
@@ -101,13 +104,6 @@ class Main_Processor(Node):
 
         # สร้าง Subscriber รับค่าจากกล้อง และสวิตช์เปิด/ปิด
         self.sub_target_error = self.create_subscription(Point, '/target_error', self.cb_target_error, qos_profile)
-        self.sub_tracking_switch = self.create_subscription(Bool, '/toggle_tracking', self.cb_toggle_tracking, 10)
-        
-        # เพิ่ม Subscriber รับคำสั่งกลับบ้าน
-        self.sub_go_home = self.create_subscription(Bool, '/go_home', self.cb_go_home, 10)
-        
-        # 🔥 เพิ่ม Subscriber สำหรับรับคำสั่งไปท่าเริ่มต้น
-        self.sub_go_start = self.create_subscription(Bool, '/go_start', self.cb_go_start, 10)
         
         # สร้าง Publisher ส่งสัญญาณบอกกล้องว่าหุ่นยนต์พร้อมรับค่าใหม่แล้ว
         self.pub_tracking_ready = self.create_publisher(Bool, '/tracking_ready', 10)
@@ -154,114 +150,149 @@ class Main_Processor(Node):
         if "active" in data or data == "1":
             self.force_detected = True
         
-    def cb_go_start(self, msg):
-        if not msg.data or not self.system_ready:
+    # 🔥 ศูนย์กลางจัดการคำสั่ง (Command Switcher)
+    def cb_robot_command(self, msg):
+        if not self.system_ready:
+            self.get_logger().warn("⚠️ ยัง Calibrate ไม่เสร็จ ไม่สามารถรับคำสั่งได้!")
             return
             
-        self.get_logger().info("▶️ ได้รับคำสั่ง GO START: กำลังไปท่าเริ่มต้น (J1=90, J2=90, J3=8, J4=180, J5=90)")
-        self.is_tracking_mode = False # ปิดกล้องชั่วคราวเผื่อเปิดอยู่
-        
-        # ท่าเป้าหมายเริ่มต้น
+        cmd = msg.data.strip().lower()
+        if cmd == "start": self.execute_go_start()
+        elif cmd == "preset": self.execute_preset()
+        elif cmd == "track": self.execute_track()
+        elif cmd == "home": self.execute_go_home()
+        else: self.get_logger().warn(f"❓ ไม่รู้จักคำสั่ง: {cmd}")
+
+    def execute_go_start(self):
+        self.get_logger().info("▶️ [COMMAND] GO START: ไปท่าเตรียมพร้อม...")
+        self.is_tracking_mode = False 
         target_start_joints = [90.0, 90.0, 8.0, 180.0, 90.0]
         target_xyz = self.calculate_forward_kinematics(target_start_joints[0], target_start_joints[1], target_start_joints[2])
         
         self.move_mode = 'JOINT'
         self.target_joints = target_start_joints
         self.start_joints = list(self.current_joints)
-        
-        # คำนวณเวลาที่ใช้ (สมูทๆ)
         max_diff = max([abs(t - s) for t, s in zip(self.target_joints, self.start_joints)])
-        duration = max_diff / 30.0 # ความเร็ว 30 องศา/วิ
-        if duration < 2.0: duration = 2.0 # ขั้นต่ำ 2 วินาที
-        
+        duration = max_diff / 30.0 
+        if duration < 2.0: duration = 2.0 
         self.step_total = int(duration / self.timer_period)
         if self.step_total == 0: self.step_total = 1
         self.step_current = 0
-        
-        # อัปเดตพิกัดปลายทาง
         self.target_pos = target_xyz
         self.is_moving = True
+
+    def execute_preset(self):
+        self.get_logger().info(f"🎯 [COMMAND] PRESET: กางแขนไปพิกัดเตรียมเล็งกล้อง...")
+        self.is_tracking_mode = False
         
-    def cb_go_home(self, msg):
-        if not msg.data or not self.system_ready:
+        # คำนวณองศาข้อต่อปลายทาง
+        try:
+            target_jts = self.calculate_inverse_kinematics(self.preset_x, self.preset_y, self.preset_z)
+        except ValueError as e:
+            self.get_logger().error(f"❌ พิกัด Preset อยู่นอกระยะเอื้อม: {e}")
             return
+
+        # ตั้งค่าจุดเริ่มต้นและจุดหมาย
+        self.target_pos = [self.preset_x, self.preset_y, self.preset_z]
+        self.start_pos = list(self.current_pos)
+        self.target_joints = target_jts
+        self.start_joints = list(self.current_joints)
+        
+        # 🔥 กุญแจสำคัญ: เปลี่ยนจากโหมด LINEAR เป็น JOINT เพื่อป้องกันการวาร์ป/ตีลังกา
+        self.move_mode = 'JOINT'
+        
+        # คำนวณเวลาเดินทางให้สมูทๆ ไม่กระชาก
+        max_angle_diff = max([abs(t - c) for t, c in zip(self.target_joints, self.current_joints)])
+        duration = max_angle_diff / self.speed_joint_deg_s
+        if duration < 1.5: 
+            duration = 1.5 # บังคับให้ใช้เวลาอย่างน้อย 1.5 วินาทีในการกางแขน
             
-        self.get_logger().info("🏠 ได้รับคำสั่ง GO HOME: เริ่มเฟส 1 (ปรับ J2=90, J3=8, J4=90, J5=90)")
-        self.is_tracking_mode = False # ปิดกล้อง
+        self.step_total = int(duration / self.timer_period)
+        if self.step_total == 0: self.step_total = 1
+        self.step_current = 0
+        self.is_moving = True
+
+    def execute_track(self):
+        self.get_logger().info("👁️ [COMMAND] TRACK: ล็อกพิกัดปัจจุบันล่าสุด แล้วเริ่มรับค่าจากกล้อง...")
         
-        # ท่า Home ปลายทางสุดท้าย (ใช้คำนวณ XYZ เก็บไว้)
+        # 1. ยกเลิกภารกิจเก่า และหยุดการเคลื่อนที่ทั้งหมดทันที
+        self.press_sequence_state = 'IDLE' 
+        self.is_moving = False 
+        self.delay_ticks = 0
+
+        # 2. 🌟 บันทึกพิกัดล่าสุดที่ซอฟต์แวร์จำได้ เพื่อใช้เป็นจุดสตาร์ท (สมูทที่สุด ไม่มีกระชาก)
+        if self.current_pos is not None and self.current_joints is not None:
+            self.start_pos = list(self.current_pos)
+            self.target_pos = list(self.current_pos)
+            
+            self.start_joints = list(self.current_joints)
+            self.target_joints = list(self.current_joints)
+            
+            # เคลียร์สเต็ปการเดินเก่าทิ้งทั้งหมด
+            self.step_total = 1
+            self.step_current = 0
+            
+            self.get_logger().info(f"📍 บันทึกพิกัดล่าสุด: X={self.current_pos[0]:.1f}, Y={self.current_pos[1]:.1f}, Z={self.current_pos[2]:.1f}")
+
+        # 3. เปิดโหมดรับภาพ
+        self.is_tracking_mode = True
+        self.lock_start_time = 0.0 
+        
+        # 4. ยิงสัญญาณไฟเขียวบอกกล้องให้ส่ง Error รอบใหม่มาได้เลย
+        self.pub_tracking_ready.publish(Bool(data=True))
+        
+    def execute_go_home(self):
+        self.get_logger().info("🏠 [COMMAND] GO HOME: เก็บแขนกลับท่า Home...")
+        self.is_tracking_mode = False 
         home_joints = [90.0, 180.0, 8.0, 90.0, 90.0] 
-        
-        # ถ้าเพิ่งเปิดเครื่องมายังไม่มีตำแหน่ง ให้วาร์ปไปเลย
         if self.current_joints is None:
             target_xyz = self.calculate_forward_kinematics(home_joints[0], home_joints[1], home_joints[2])
             self.publish_joints(home_joints)
             self.current_joints = home_joints
             self.current_pos = target_xyz
             return
-            
-        # คำนวณพิกัด XYZ ท่า Home เก็บไว้ใช้ตอนจบเฟสสุดท้าย
         self.final_home_pos = self.calculate_forward_kinematics(home_joints[0], home_joints[1], home_joints[2])
-        
-        # --- เตรียมตัวเข้าสู่ เฟส 1 ---
         self.homing_phase = 1
         self.move_mode = 'JOINT'
         self.start_joints = list(self.current_joints)
-        
-        # เป้าหมายเฟส 1: J1 ค้างไว้ที่เดิม, J2=90, J3=8, J4=90, J5=90
-        self.target_joints = [
-            self.current_joints[0], # J1 คงเดิม
-            90.0,                   # J2
-            8.0,                    # J3
-            90.0,                   # J4
-            90.0                    # J5
-        ]
-        
-        # คำนวณเวลาที่ใช้สำหรับเฟส 1 (ดูจากองศาที่ต้องขยับเยอะสุด)
+        self.target_joints = [self.current_joints[0], 90.0, 8.0, 90.0, 90.0]
         max_diff = max([abs(tj - cj) for tj, cj in zip(self.target_joints, self.current_joints)])
-        duration = max_diff / 30.0  # ความเร็ว 30 องศา/วิ (เปลี่ยนเป็น self.speed_joint_deg_s ก็ได้ครับ)
-        if duration < 1.0: duration = 1.0 # ขั้นต่ำ 1 วินาที
-            
+        duration = max_diff / 30.0  
+        if duration < 1.0: duration = 1.0 
         self.step_total = int(duration / self.timer_period)
         if self.step_total == 0: self.step_total = 1
-        
         self.step_current = 0
         self.is_moving = True
-        
-    def cb_toggle_tracking(self, msg):
-        self.is_tracking_mode = msg.data
-        if self.is_tracking_mode:
-            self.is_moving = False 
-            self.delay_ticks = 0 # รีเซ็ตดีเลย์
-            self.get_logger().info("👁️ Tracking Mode: ON (กำลังล็อกเป้าหมายด้วยกล้อง...)")
-            self.pub_tracking_ready.publish(Bool(data=True))
-        else:
-            self.get_logger().info("👁️ Tracking Mode: OFF (กลับสู่โหมดรับคำสั่งปกติ)")
             
     def cb_target_error(self, msg):
-        # 1. เช็คก่อนเลยว่าข้อความเข้ามาถึงไหม 
-        self.get_logger().info(f"📨 Msg received: {msg.x:.1f}, {msg.y:.1f}, {msg.z:.1f}")
+        # 🌟 1. ด่านตรวจจับแรกสุด! ถ้าระบบไม่พร้อม หรือไม่ได้เปิดโหมด Track ให้ "เมิน" ข้อความทุกอย่างทิ้งไปเลย
+        if not self.is_tracking_mode or not self.system_ready or self.homing_phase != 0 or self.current_pos is None:
+            return
 
-        # 2. เช็คเงื่อนไข
+        # 🌟 2. Print ข้อความเฉพาะตอนที่กำลัง Track อยู่ (แก้ปัญหาโชว์ 9999 ตอนกดเสร็จ)
+        self.get_logger().info(f"📨 Msg received: {msg.x:.1f}, {msg.y:.1f}, {msg.z:.1f}")
+        
+        # 🔥 3. ถ้ารับรหัส 9999.0 แปลว่า "เป้าหลุดกล้อง" ระหว่าง Track
+        if msg.x == 9999.0:
+            if self.is_moving:
+                self.get_logger().warn("🔍 เป้าหลุด! สั่งหุ่นยนต์หยุดนิ่งรอเป้าหมายใหม่...")
+                self.is_moving = False  # สั่งเบรกหยุดนิ่งอยู่กับที่ทันที!
+            self.lock_start_time = 0.0  # รีเซ็ตตัวนับเวลากดปุ่ม
+            self.pub_tracking_ready.publish(Bool(data=True)) # บอกกล้องว่าพร้อมรับภาพเฟรมต่อไป
+            return
+
+        # 2. เช็คเงื่อนไขความพร้อม
         if not self.system_ready:
             self.get_logger().warn("⚠️ Ignore: System NOT Ready")
             return
-        
         if not self.is_tracking_mode:
             return
-
         if self.current_pos is None:
             self.get_logger().warn("⚠️ Ignore: Current Pos is None")
             return
-
         if self.homing_phase != 0:
             self.get_logger().warn("⚠️ Ignore: Homing in progress")
             return
-
-        # 🔥 ถ้ากำลังพักหน่วงเวลา หรือกำลังเดินอยู่ ให้ Ignore
-        #if self.is_moving or self.delay_ticks > 0:
-        #    self.get_logger().warn("⚠️ Ignore: Robot is moving or waiting")
-        #    return
 
         err_x = msg.x       
         err_depth = msg.y   
@@ -273,27 +304,23 @@ class Main_Processor(Node):
         if abs(err_x) <= limit and abs(err_y) <= limit and abs(err_depth) <= self.RADIUS_DEAD_ZONE:
             self.is_moving = False  # สั่งเบรกหยุดขยับ
             
-            # ถ้าเพิ่งเข้ามาตรงกลางครั้งแรก ให้เริ่มจับเวลา
             if self.lock_start_time == 0.0:
                 self.lock_start_time = time.time()
                 self.get_logger().info("🎯 [LOCKED] เป้าตรงกลาง! กำลังจ้องจับเวลา 2 วินาที...")
-                
-            # ถ้านิ่งอยู่แล้ว ให้เช็คว่าครบ 2 วิหรือยัง
             else:
                 elapsed_time = time.time() - self.lock_start_time
                 if elapsed_time >= 2.0:
                     if self.press_sequence_state == 'IDLE':
                         self.get_logger().info("✅ นิ่งครบ 2 วินาทีแล้ว! มั่นใจ! ยื่นมือไปกดเลย!")
-                        self.is_tracking_mode = False # ปิดกล้องชั่วคราวตอนเอื้อมมือ
-                        self.lock_start_time = 0.0 # รีเซ็ตเวลาทิ้ง
+                        self.is_tracking_mode = False 
+                        self.lock_start_time = 0.0 
                         
-                        # ข้ามสถานะ DELAY_1 ไปเริ่มพุ่งชนเลย
                         self.press_sequence_state = 'PRESSING'
                         self.pre_press_pos = list(self.current_pos)
                         self.force_detected = False
                         
                         temp_speed = self.speed_mm_s
-                        self.speed_mm_s = 50.0 # ความเร็วตอนยื่นมือกด
+                        self.speed_mm_s = 50.0 
                         self.move_to_offset(0.0, 150.0, 0.0) 
                         self.speed_mm_s = temp_speed 
                         
@@ -301,12 +328,12 @@ class Main_Processor(Node):
             return
 
         # --- 2. ถ้าเป้าหมายขยับหนีออกไปจากตรงกลาง ---
-        else:
-            if self.lock_start_time != 0.0:
-                self.get_logger().warn("🏃 เป้าหมายขยับหนี! ยกเลิกการจับเวลา กลับไป Track ต่อ...")
-                self.lock_start_time = 0.0 # รีเซ็ตตัวจับเวลาทิ้งทันที
+        # (ผมตัดคำว่า else ทิ้งไปเลย เพื่อป้องกันการย่อหน้าผิดพลาดครับ)
+        if self.lock_start_time != 0.0:
+            self.get_logger().warn("🏃 เป้าหมายขยับหนี! ยกเลิกการจับเวลา กลับไป Track ต่อ...")
+            self.lock_start_time = 0.0 
 
-        # คำนวณ Delta
+        # คำนวณ Delta (พิกัดระยะก้าว)
         delta_x = err_x * self.tracking_kp_xy      
         delta_y = err_depth * self.tracking_kp_depth 
         delta_z = err_y * self.tracking_kp_xy      
@@ -633,8 +660,17 @@ class Main_Processor(Node):
                 interp_joints.append(j_val)
             self.publish_joints(interp_joints)
             self.current_joints = interp_joints
-            # 🔥 [เพิ่ม] อัปเดตพิกัด XYZ ปัจจุบันทันที เพื่อให้แทรกคำสั่งกลางอากาศได้เนียนๆ
-            self.current_pos = self.calculate_forward_kinematics(interp_joints[0], interp_joints[1], interp_joints[2])
+            
+            # 🌟 [แก้ไขบั๊กพุ่งกระฉูด!]
+            # ยกเลิกการใช้สมการ FK (calculate_forward_kinematics) มาอัปเดตพิกัด XYZ ชั่วคราว 
+            # เพราะสมการ IK/FK ตีกันเอง ทำให้ค่า X, Y กระโดดข้ามพิกัด
+            # เปลี่ยนมาใช้การคำนวณจุดต่อจุดอิงจาก target_pos โดยตรง หุ่นจะได้จำตำแหน่งตัวเองได้แม่นยำ 100%
+            if self.start_pos is not None and self.target_pos is not None:
+                self.current_pos = [
+                    self.start_pos[0] + (self.target_pos[0] - self.start_pos[0]) * t,
+                    self.start_pos[1] + (self.target_pos[1] - self.start_pos[1]) * t,
+                    self.start_pos[2] + (self.target_pos[2] - self.start_pos[2]) * t
+                ]
 
         # --- 2. การจัดการเมื่อเดินสุดทาง (t = 1.0) ---
         if t == 1.0:

@@ -34,4 +34,9 @@ def generate_launch_description():
             executable='steam_cam',
             name='steam_cam',
         ),
+        launch_ros.actions.Node(
+            package='processor_unit',
+            executable='esp32_bridge_node',
+            name='esp32_bridge_node',
+        ),
     ])

@@ -64,7 +64,7 @@ class SocketTrackerNode(Node):
         self.miss_count = 0
         self.MAX_MISS_FRAMES = 10
         self.SMOOTH_FACTOR = 0.3
-        self.target_label = "all"
+        self.target_label = "none"
         self.frame_counter = 0
         self.SKIP_FRAMES = 2 if not self.simulation_mode else 0 # ซิมในคอมให้ลื่นๆ ไปเลย
         self.TARGET_RADIUS = 80      
@@ -87,6 +87,8 @@ class SocketTrackerNode(Node):
         self.fake_force_pub = self.create_publisher(String, '/uart_rx_zero_2w', 10)
         self.sub_ready = self.create_subscription(Bool, '/tracking_ready', self.cb_robot_ready, 10)
         self.sub_target = self.create_subscription(String, '/set_target_label', self.cb_set_target, 10)
+        self.cmd_pub = self.create_publisher(String, '/robot_command', 10)
+        self.cmd_sub = self.create_subscription(String, '/robot_command', self.cb_robot_command, 10)
         
         print("Controls: 't' = Toggle, 'q' = Quit")
         
@@ -97,6 +99,18 @@ class SocketTrackerNode(Node):
     def cb_set_target(self, msg):
         self.target_label = msg.data.strip()
         self.get_logger().info(f"🎯 Changed target to: {self.target_label}")
+        
+    def cb_robot_command(self, msg):
+        cmd = msg.data.strip().lower()
+        if cmd == "track":
+            self.robot_tracking_state = True
+            self.waiting_for_robot = False
+            self.last_r = 0 # 🌟 รีเซ็ตค่าเสมอเมื่อเริ่ม Track ใหม่ หุ่นจะได้ไม่จำค่าเก่ามาพุ่ง
+            self.get_logger().info("👀 [CAMERA] เปิดวาล์ว: เริ่มส่งพิกัดล็อกเป้า!")
+        elif cmd in ["start", "preset", "home"]:
+            self.robot_tracking_state = False
+            self.last_r = 0 # 🌟 รีเซ็ตค่าเช่นกัน
+            self.get_logger().info(f"🛑 [CAMERA] ปิดวาล์วชั่วคราว: หุ่นกำลังเดินทางไปโหมด {cmd.upper()}")
 
     def draw_text_bg(self, img, text, pos, font_scale=0.6, color=(255, 255, 255), thickness=2, bg_color=(0, 0, 0)):
         font = cv2.FONT_HERSHEY_SIMPLEX
@@ -220,8 +234,16 @@ class SocketTrackerNode(Node):
 
                         if largest_box is not None:
                             found_valid_target = True
-                            self.miss_count = 0
                             raw_x, raw_y, raw_r = largest_box
+                            # 🌟 [ส่วนที่เพิ่มใหม่] 
+                            # ถ้าเพิ่งเริ่ม Track (last_r เป็น 0) หรือเป้าหลุดกล้องไปเกิน 5 เฟรม
+                            # ให้ดึงค่าดิบมาเป็นค่าตั้งต้นเลย เพื่อป้องกันการคำนวณ Error กระชาก
+                            if self.last_r == 0 or self.miss_count > 5:
+                                self.last_x = raw_x
+                                self.last_y = raw_y
+                                self.last_r = raw_r
+                                
+                            self.miss_count = 0
 
                             # Smoothing
                             current_x = int((raw_x * self.SMOOTH_FACTOR) + (self.last_x * (1 - self.SMOOTH_FACTOR)))
@@ -238,12 +260,32 @@ class SocketTrackerNode(Node):
                             
                             status_text, status_color = self.simulate_control(error_x, error_y, error_r)
                             self.draw_text_bg(display_frame, status_text, (CENTER_X - 100, RES_H - 50), 1.0, status_color)
+                    
+                    # 🌟 [ส่วนที่เพิ่มใหม่] 
+                    # ถ้ารอบนี้หาเป้าไม่เจอเลย ให้นับ miss_count เพิ่มขึ้น
+                    if not found_valid_target:
+                        self.miss_count += 1
 
                     # --- 📤 ส่วนการส่งข้อมูลไปหาหุ่นยนต์ (ROS 2 Message) ---
                     msg = Point()
-                    msg.x = float(error_x)
-                    msg.z = float(error_y) 
-                    msg.y = float(error_r) if found_valid_target else 0.0
+                    if not found_valid_target:
+                        self.miss_count += 1
+                        
+                        # 🔥 [แก้ตรงนี้!] ถัาไม่เจอเป้าหมาย ให้ส่งรหัสลับ 9999.0 ไปบอกสมองกลให้หยุดนิ่ง
+                        msg.x = 9999.0
+                        msg.y = 9999.0
+                        msg.z = 9999.0
+                        
+                        if self.miss_count > self.MAX_MISS_FRAMES:
+                            self.last_x, self.last_y, self.last_r = CENTER_X, CENTER_Y, self.TARGET_RADIUS
+                            self.draw_text_bg(display_frame, "NO VALID TARGET", (CENTER_X - 100, RES_H - 50), 1.0, (100, 100, 100))
+                        else:
+                            cv2.circle(display_frame, (int(self.last_x), int(self.last_y)), 5, (0, 255, 255), -1)
+                            self.draw_text_bg(display_frame, "LOST signal... holding", (10, 60), 0.6, (0, 165, 255))
+                    else:
+                        msg.x = float(error_x)
+                        msg.z = float(error_y) 
+                        msg.y = float(error_r) if found_valid_target else 0.0
 
                     current_time = time.time()
                     is_timeout = (self.waiting_for_robot and (current_time - self.last_msg_time > 5.0))
@@ -268,15 +310,22 @@ class SocketTrackerNode(Node):
                     cv2.imshow("Robot View", display_frame)
                     
                     key = cv2.waitKey(1) & 0xFF
-                    if key == ord('q'): break
+                    if key == ord('q'): 
+                        break
+                    elif key == ord('s'):
+                        self.cmd_pub.publish(String(data="start"))
+                    elif key == ord('p'):
+                        self.cmd_pub.publish(String(data="preset"))
                     elif key == ord('t'):
-                        self.robot_tracking_state = not self.robot_tracking_state
-                        self.toggle_pub.publish(Bool(data=self.robot_tracking_state))
-                        if not self.robot_tracking_state: self.waiting_for_robot = False
-                        self.get_logger().info(f"👉 Tracking: {'ON' if self.robot_tracking_state else 'OFF'}")
+                        self.cmd_pub.publish(String(data="track"))
+                        # 🌟 บังคับให้กล้องรับรู้โหมด Track ทันทีที่กดคีย์บอร์ด ไม่ต้องรอระบบเครือข่าย
+                        self.robot_tracking_state = True
+                        self.waiting_for_robot = False
+                        self.last_r = 0
+                    elif key == ord('h'):
+                        self.cmd_pub.publish(String(data="home"))
                     elif key == ord('f'):
                         self.fake_force_pub.publish(String(data="1"))
-                        self.get_logger().info("💥 [SIMULATION] จำลองการชนเป้าหมาย!")
                 else:
                     self.get_logger().warn("⚠️ Frame Decode Error")
 
