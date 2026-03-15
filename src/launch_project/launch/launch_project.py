@@ -39,4 +39,9 @@ def generate_launch_description():
             executable='esp32_bridge_node',
             name='esp32_bridge_node',
         ),
+        launch_ros.actions.Node(
+            package='processor_unit',
+            executable='camera_front',
+            name='camera_front',
+        ),
     ])
