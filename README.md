@@ -18,6 +18,7 @@ Clone the repository to your local machine or Raspberry Pi:
 ```bash
 git clone [https://github.com/EARTH157/Senior_Project-WhitePost-Main_Arm.git](https://github.com/EARTH157/Senior_Project-WhitePost-Main_Arm.git)
 cd Senior_Project-WhitePost-Main_Arm
+```bash
 
 # Clone this repository
 
