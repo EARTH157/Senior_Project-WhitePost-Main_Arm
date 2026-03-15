@@ -15,7 +15,6 @@ This repository contains the control system for a 5-DOF Robotic Arm and End Effe
 
 ## 1. Installation & Setup
 Clone the repository to your local machine or Raspberry Pi:
-* `
 git clone [https://github.com/EARTH157/Senior_Project-WhitePost-Main_Arm.git](https://github.com/EARTH157/Senior_Project-WhitePost-Main_Arm.git)
 cd Senior_Project-WhitePost-Main_Arm
 
