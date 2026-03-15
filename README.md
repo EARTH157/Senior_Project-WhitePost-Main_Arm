@@ -34,6 +34,6 @@ Tip: You can add these lines to your ~/.bashrc to load them automatically.
 
 # 2. Installation & Development Workflow
 
-Initial Setup
+*Initial Setup*
 
 Clone the repository to your Raspberry Pi or local machine:
