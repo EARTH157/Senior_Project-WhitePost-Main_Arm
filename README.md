@@ -1,3 +1,7 @@
+# Clone this repository
+
+$ git clone https://github.com/EARTH157/Senior_Project-WhitePost-Main_Arm.git
+
 # remote Raspberry Pi 5 in Arm Station
 
 ssh raspi-earth@172.20.10.2
