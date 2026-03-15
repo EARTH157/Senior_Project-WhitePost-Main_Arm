@@ -33,12 +33,11 @@ setup(
     entry_points={
         'console_scripts': [
             'main_processor = processor_unit.main_processor:main',
-            'test = processor_unit.test:main',
-            'test1 = processor_unit.test1:main',
             'uart_zero_two_w = processor_unit.uart_zero_two_w:main',
             'steam_cam = processor_unit.steam_opencv:main',
             'uart_command_and_status_to_pi5 = processor_unit.uart_command_and_status_to_pi5:main',
             'esp32_bridge_node = processor_unit.esp32_bridge_node:main',
+            'camera_front = processor_unit.camera_front:main',
         ],
     },
 )

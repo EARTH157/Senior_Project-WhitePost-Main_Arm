@@ -1,0 +1,27 @@
+[1.952s] Invoking command in '/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/src/encoder_unit': PYTHONPATH=/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/encoder_unit/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/encoder_unit build --build-base /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/encoder_unit/build install --record /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/encoder_unit/install.log --single-version-externally-managed install_data
+[2.394s] running egg_info
+[2.400s] writing ../../build/encoder_unit/encoder_unit.egg-info/PKG-INFO
+[2.400s] writing dependency_links to ../../build/encoder_unit/encoder_unit.egg-info/dependency_links.txt
+[2.400s] writing entry points to ../../build/encoder_unit/encoder_unit.egg-info/entry_points.txt
+[2.400s] writing requirements to ../../build/encoder_unit/encoder_unit.egg-info/requires.txt
+[2.401s] writing top-level names to ../../build/encoder_unit/encoder_unit.egg-info/top_level.txt
+[2.401s] reading manifest file '../../build/encoder_unit/encoder_unit.egg-info/SOURCES.txt'
+[2.401s] adding license file 'LICENSE'
+[2.405s] writing manifest file '../../build/encoder_unit/encoder_unit.egg-info/SOURCES.txt'
+[2.405s] running build
+[2.405s] running build_py
+[2.406s] running install
+[2.406s] running install_lib
+[2.409s] running install_data
+[2.409s] running install_egg_info
+[2.412s] removing '/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/python3.10/site-packages/encoder_unit-0.0.0-py3.10.egg-info' (and everything under it)
+[2.417s] Copying ../../build/encoder_unit/encoder_unit.egg-info to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/python3.10/site-packages/encoder_unit-0.0.0-py3.10.egg-info
+[2.417s] running install_scripts
+[2.454s] Installing as5600_1 script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/encoder_unit
+[2.456s] Installing as5600_2 script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/encoder_unit
+[2.456s] Installing as5600_3 script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/encoder_unit
+[2.456s] Installing as5600_4 script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/encoder_unit
+[2.456s] Installing as5600_5 script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/encoder_unit
+[2.457s] Installing limit script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/encoder_unit
+[2.457s] writing list of installed files to '/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/encoder_unit/install.log'
+[2.509s] Invoked command in '/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/src/encoder_unit' returned '0': PYTHONPATH=/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/encoder_unit/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/encoder_unit/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/encoder_unit build --build-base /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/encoder_unit/build install --record /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/encoder_unit/install.log --single-version-externally-managed install_data
