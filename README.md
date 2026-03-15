@@ -191,7 +191,9 @@ Use these commands to publish data to ROS2 topics and control the arm.
 
 ```bash
 ros2 topic pub --once /robot_command std_msgs/msg/String "{data: 'start'}"
+ros2 topic pub --once /robot_command std_msgs/msg/String "{data: 'start_back'}"
 ros2 topic pub --once /robot_command std_msgs/msg/String "{data: 'preset'}"
+ros2 topic pub --once /robot_command std_msgs/msg/String "{data: 'preset_back'}"
 ros2 topic pub --once /robot_command std_msgs/msg/String "{data: 'track'}"
 ros2 topic pub --once /robot_command std_msgs/msg/String "{data: 'home'}"
 ```

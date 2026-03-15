@@ -84,6 +84,12 @@ class Main_Processor(Node):
         self.preset_y = 350.0  
         self.preset_z = 250.0  
         
+        # 🟢 พิกัด PRESET เตรียมกดปุ่ม (ด้านหลัง Q3, Q4)
+        # ตั้ง Y ติดลบเพื่อให้หันไปด้านหลัง (ลองปรับ X ตามที่ต้องการได้เลย)
+        self.preset_back_x = -300.0 
+        self.preset_back_y = -350.0  
+        self.preset_back_z = 250.0
+        
         # 🔥 ศูนย์กลางรับคำสั่งทั้งหมด
         self.sub_command = self.create_subscription(String, '/robot_command', self.cb_robot_command, 10)
         
@@ -92,6 +98,12 @@ class Main_Processor(Node):
         self.state_start_time = 0.0
         self.pre_press_pos = None
         self.force_detected = False
+        
+        # 🟢 [เพิ่มใหม่] ตัวแปรสำหรับการเช็คประตู
+        self.press_retry_count = 0 
+        self.elevator_door_open = False
+        self.check_door_start_time = 0.0
+        self.sub_door = self.create_subscription(Bool, '/elevator_door_status', self.cb_door_status, 10)
 
         # รับค่าจาก UART (Force Sensor)
         self.sub_force = self.create_subscription(String, '/uart_rx_zero_2w', self.cb_force_sensor, 10)
@@ -136,6 +148,9 @@ class Main_Processor(Node):
         self.current_angles = {1: None, 2: None, 3: None} 
         
         self.get_logger().info('IK Solver Node Started. Checking Calibration Status...')
+        
+    def cb_door_status(self, msg):
+        self.elevator_door_open = msg.data
 
     def force_go_home_before_exit(self):
         self.get_logger().info("🛑 Ctrl+C Detected! กำลังสั่งกลับท่า Home ก่อนปิดระบบ...")
@@ -150,7 +165,6 @@ class Main_Processor(Node):
         if "active" in data or data == "1":
             self.force_detected = True
         
-    # 🔥 ศูนย์กลางจัดการคำสั่ง (Command Switcher)
     def cb_robot_command(self, msg):
         if not self.system_ready:
             self.get_logger().warn("⚠️ ยัง Calibrate ไม่เสร็จ ไม่สามารถรับคำสั่งได้!")
@@ -159,6 +173,8 @@ class Main_Processor(Node):
         cmd = msg.data.strip().lower()
         if cmd == "start": self.execute_go_start()
         elif cmd == "preset": self.execute_preset()
+        elif cmd == "start_back": self.execute_go_start_back() # 🟢 เพิ่มใหม่
+        elif cmd == "preset_back": self.execute_preset_back()  # 🟢 เพิ่มใหม่
         elif cmd == "track": self.execute_track()
         elif cmd == "home": self.execute_go_home()
         else: self.get_logger().warn(f"❓ ไม่รู้จักคำสั่ง: {cmd}")
@@ -206,6 +222,53 @@ class Main_Processor(Node):
         duration = max_angle_diff / self.speed_joint_deg_s
         if duration < 1.5: 
             duration = 1.5 # บังคับให้ใช้เวลาอย่างน้อย 1.5 วินาทีในการกางแขน
+            
+        self.step_total = int(duration / self.timer_period)
+        if self.step_total == 0: self.step_total = 1
+        self.step_current = 0
+        self.is_moving = True
+        
+    def execute_go_start_back(self):
+        self.get_logger().info("▶️ [COMMAND] GO START BACK: ไปท่าเตรียมพร้อม (ด้านหลัง)...")
+        self.is_tracking_mode = False 
+        
+        # 🟢 หมุน Joint 1 ไปที่ 270 องศา (หันไปทางด้านหลัง)
+        target_start_joints = [270.0, 90.0, 8.0, 180.0, 90.0]
+        target_xyz = self.calculate_forward_kinematics(target_start_joints[0], target_start_joints[1], target_start_joints[2])
+        
+        self.move_mode = 'JOINT'
+        self.target_joints = target_start_joints
+        self.start_joints = list(self.current_joints)
+        max_diff = max([abs(t - s) for t, s in zip(self.target_joints, self.start_joints)])
+        duration = max_diff / 30.0 
+        if duration < 2.0: duration = 2.0 
+        self.step_total = int(duration / self.timer_period)
+        if self.step_total == 0: self.step_total = 1
+        self.step_current = 0
+        self.target_pos = target_xyz
+        self.is_moving = True
+
+    def execute_preset_back(self):
+        self.get_logger().info(f"🎯 [COMMAND] PRESET BACK: กางแขนไปพิกัดเตรียมเล็งกล้อง (ด้านหลัง)...")
+        self.is_tracking_mode = False
+        
+        try:
+            target_jts = self.calculate_inverse_kinematics(self.preset_back_x, self.preset_back_y, self.preset_back_z)
+        except ValueError as e:
+            self.get_logger().error(f"❌ พิกัด Preset Back อยู่นอกระยะเอื้อม: {e}")
+            return
+
+        self.target_pos = [self.preset_back_x, self.preset_back_y, self.preset_back_z]
+        self.start_pos = list(self.current_pos)
+        self.target_joints = target_jts
+        self.start_joints = list(self.current_joints)
+        
+        self.move_mode = 'JOINT'
+        
+        max_angle_diff = max([abs(t - c) for t, c in zip(self.target_joints, self.current_joints)])
+        duration = max_angle_diff / self.speed_joint_deg_s
+        if duration < 1.5: 
+            duration = 1.5 
             
         self.step_total = int(duration / self.timer_period)
         if self.step_total == 0: self.step_total = 1
@@ -318,11 +381,16 @@ class Main_Processor(Node):
                         self.press_sequence_state = 'PRESSING'
                         self.pre_press_pos = list(self.current_pos)
                         self.force_detected = False
+                        self.press_retry_count = 0 
                         
                         temp_speed = self.speed_mm_s
                         self.speed_mm_s = 50.0 
-                        self.move_to_offset(0.0, 150.0, 0.0) 
-                        self.speed_mm_s = temp_speed 
+                        
+                        # 🟢 [แก้ไข] เช็คว่าถ้า Y ติดลบ (อยู่ด้านหลัง) ให้ยื่นดันไปทางทิศ -Y
+                        push_dir = 1.0 if self.current_pos[1] >= 0 else -1.0
+                        self.move_to_offset(0.0, 150.0 * push_dir, 0.0) 
+                        
+                        self.speed_mm_s = temp_speed
                         
             self.pub_tracking_ready.publish(Bool(data=True))
             return
@@ -340,16 +408,23 @@ class Main_Processor(Node):
 
         # จำกัดระยะก้าว (Safety)
         distance = math.sqrt(delta_x**2 + delta_y**2 + delta_z**2)
-        
         if distance > self.tracking_max_step:
             scale = self.tracking_max_step / distance
             delta_x *= scale
             delta_y *= scale
             delta_z *= scale
 
-        new_x = self.current_pos[0] + delta_x
-        new_y = self.current_pos[1] + delta_y
+        # 🟢 [แก้ไข] ตรวจสอบว่าหันหน้า (Y>=0) หรือ หันหลัง (Y<0) เพื่อแปลงแกนกล้องให้ตรงข้าม
+        if self.current_pos[1] >= 0:
+            new_x = self.current_pos[0] + delta_x
+            new_y = self.current_pos[1] + delta_y
+        else:
+            new_x = self.current_pos[0] - delta_x
+            new_y = self.current_pos[1] - delta_y
+            
         new_z = self.current_pos[2] + delta_z
+
+        self.get_logger().info(f"Target: X:{new_x:.1f}, Y:{new_y:.1f}, Z:{new_z:.1f}")
 
         self.get_logger().info(f"Target: X:{new_x:.1f}, Y:{new_y:.1f}, Z:{new_z:.1f} (Moved: {delta_x:.1f}, {delta_y:.1f}, {delta_z:.1f})")
 
@@ -420,25 +495,24 @@ class Main_Processor(Node):
         self.move_to_absolute(self.current_pos[0] + dx, self.current_pos[1] + dy, self.current_pos[2] + dz)
         
     def process_button_press_sequence(self):
-        current_time = time.time()
-        
-        # ⚠️ (ลบบล็อก if self.press_sequence_state == 'DELAY_1': ทิ้งไปเลย)
-                
-        # 1. จังหวะกำลังยื่นแขนไปกด (เปลี่ยนเป็น if ได้เลย)
+        # 1. จังหวะกำลังยื่นแขนไปกด
         if self.press_sequence_state == 'PRESSING':
-            # เช็คว่าเซ็นเซอร์ชนหรือยัง (Interrupt!)
+            # เช็คว่าเซ็นเซอร์ชนหรือยัง
             if self.force_detected:
-                self.get_logger().info("🚨 Force Active! ชนแล้ว กำลังถอยกลับ...")
+                self.get_logger().info("🚨 Force Active! ชนแล้ว เริ่มเช็คประตูลิฟต์และกำลังถอยกลับ...")
                 self.is_moving = False 
                 
+                # สั่งถอยกลับ
                 temp_speed = self.speed_mm_s
                 self.speed_mm_s = 50.0 
                 self.move_to_absolute(self.pre_press_pos[0], self.pre_press_pos[1], self.pre_press_pos[2])
                 self.speed_mm_s = temp_speed
                 
+                # 🟢 เริ่มจับเวลาตั้งแต่จังหวะที่กดโดนเลย!
+                self.check_door_start_time = time.time() 
                 self.press_sequence_state = 'WAIT_FOR_RETRACT'
                 
-            # ถ้าเดินจนสุดระยะที่เราเผื่อไว้ 150mm แต่ยังไม่ชน
+            # ถ้าเดินจนสุดระยะที่เผื่อไว้แต่ไม่ชน (กดพลาด)
             elif not self.is_moving:
                 self.get_logger().warn("⚠️ กดจนสุดแขนแล้วแต่ไม่เจอเซ็นเซอร์ ถอยกลับ...")
                 temp_speed = self.speed_mm_s
@@ -446,15 +520,60 @@ class Main_Processor(Node):
                 self.move_to_absolute(self.pre_press_pos[0], self.pre_press_pos[1], self.pre_press_pos[2])
                 self.speed_mm_s = temp_speed
                 
+                # 🟢 เริ่มจับเวลาเผื่อไว้เช่นกัน
+                self.check_door_start_time = time.time()
                 self.press_sequence_state = 'WAIT_FOR_RETRACT'
                 
-        # 2. รอให้ถอยเสร็จจริงๆ
+        # 2. รอถอยกลับ และเช็คประตูไปพร้อมๆ กัน!
         elif self.press_sequence_state == 'WAIT_FOR_RETRACT':
-            if not self.is_moving:
-                self.get_logger().info("✅ ถอยกลับถึงจุดปลอดภัยแล้ว!")
+            # 🟢 ถ้าเจอประตูเปิดปุ๊บ "ระหว่างกำลังถอย" ให้กลับ Home ทันที
+            if self.elevator_door_open:
+                self.get_logger().info("🚪 ประตูลิฟต์เปิดแล้ว! (เจอระหว่างถอย) สั่งแขนกลับท่า Home ทันที")
+                self.press_retry_count = 0
                 self.press_sequence_state = 'IDLE'
-                # ถ้าอยากให้ Track ต่อทันที
-                #self.is_tracking_mode = True
+                self.execute_go_home()
+                return
+
+            # ถ้าถอยเสร็จแล้วแต่ประตูยังไม่เปิด ให้ไปรอเช็คต่อ
+            if not self.is_moving:
+                self.get_logger().info("✅ ถอยกลับถึงจุดปลอดภัยแล้ว! เฝ้าดูประตูต่อ...")
+                self.press_sequence_state = 'CHECK_DOOR'
+                
+        # 3. เฝ้าดูประตูจนกว่าจะครบเวลาที่กำหนด
+        elif self.press_sequence_state == 'CHECK_DOOR':
+            # 🟢 ถ้าประตูเปิดตอนที่จอดรอดูอยู่
+            if self.elevator_door_open:
+                self.get_logger().info("🚪 ประตูลิฟต์เปิดแล้ว! สั่งแขนกลับท่า Home ทันที")
+                self.press_retry_count = 0
+                self.press_sequence_state = 'IDLE'
+                self.execute_go_home()
+                return
+                
+            # คำนวณเวลาที่ผ่านไป (นับตั้งแต่ตอนที่ชนเซ็นเซอร์)
+            elapsed = time.time() - self.check_door_start_time
+            
+            # ให้เวลารอประตูลิฟต์ตอบสนอง 3.0 วินาที (ปรับเพิ่ม/ลดได้)
+            if elapsed >= 3.0: 
+                self.press_retry_count += 1
+                if self.press_retry_count < 5:
+                    self.get_logger().warn(f"⚠️ หมดเวลา! ประตูยังไม่เปิด (กำลังกดซ้ำครั้งที่ {self.press_retry_count + 1}/5)")
+                    
+                    self.press_sequence_state = 'PRESSING'
+                    self.force_detected = False
+                    
+                    # พุ่งเข้าไปกดอีกรอบ
+                    temp_speed = self.speed_mm_s
+                    self.speed_mm_s = 50.0 
+                    # 🟢 [แก้ไข] กดซ้ำโดยดูทิศหน้า/หลังด้วย
+                    push_dir = 1.0 if self.pre_press_pos[1] >= 0 else -1.0
+                    self.move_to_offset(0.0, 150.0 * push_dir, 0.0) 
+                    
+                    self.speed_mm_s = temp_speed
+                else:
+                    self.get_logger().error("❌ กดครบ 5 ครั้งแล้วประตูยังไม่เปิด! ยกเลิกภารกิจกลับท่า Start")
+                    self.press_retry_count = 0
+                    self.press_sequence_state = 'IDLE'
+                    self.execute_go_start()
     
     def calibration_routine(self):
         if self.system_ready: return
@@ -773,7 +892,7 @@ class Main_Processor(Node):
         else: theta1_raw = math.atan2(y+190.0, x)
             
         theta1 = normalize_angle_positive(theta1_raw)
-        if not (0 <= math.degrees(theta1) <= 270.1): 
+        if not (0 <= math.degrees(theta1) <= 360.0): 
             raise ValueError(f"Joint 1 Limit Exceeded: {math.degrees(theta1):.2f} deg")
         
         w_target = math.sqrt(x**2 + y**2)

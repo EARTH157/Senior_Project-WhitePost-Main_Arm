@@ -33,7 +33,7 @@ def generate_launch_description():
             output='screen'
         ),
 
-        # 2. Node ระบบกล้อง (Steam Cam)
+        # 2. Node ระบบกล้อง (Steam Cam - สำหรับ Track เป้าหมาย)
         Node(
             package='processor_unit',
             executable='steam_cam',
@@ -42,15 +42,23 @@ def generate_launch_description():
             output='screen'
         ),
 
-        # 2. หน้าต่างสไลเดอร์ GUI (โหมด "เต้นตาม" สมองกล)
+        # 🌟 [เพิ่มใหม่] 3. Node กล้องหน้า (Camera Front - เช็คประตูลิฟต์)
+        Node(
+            package='processor_unit',
+            executable='camera_front', # 👈 ใส่ชื่อ executable ที่ตั้งไว้ใน setup.py
+            name='camera_front_node',
+            output='screen'
+        ),
+
+        # 4. หน้าต่างสไลเดอร์ GUI (โหมด "เต้นตาม" สมองกล)
         Node(
             package='joint_state_publisher_gui',
             executable='joint_state_publisher_gui',
             name='joint_state_publisher_gui',
-            parameters=[{'source_list': ['/joint_states']}] # 👈 เติมบรรทัดนี้ครับ!
+            parameters=[{'source_list': ['/joint_states']}] 
         ),
 
-        # 3. RViz และ Robot State Publisher
+        # 5. RViz และ Robot State Publisher
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(display_launch_path)
         )

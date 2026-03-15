@@ -4,6 +4,7 @@ import cv2
 import os
 from ament_index_python.packages import get_package_share_directory
 from ultralytics import YOLO
+from std_msgs.msg import Bool # <--- เพิ่มไลบรารีส่งข้อความ
 
 class YoloWebcamTestNode(Node):
     def __init__(self):
@@ -18,10 +19,8 @@ class YoloWebcamTestNode(Node):
             self.get_logger().info("YOLO model loaded successfully!")
         except Exception as e:
             self.get_logger().error(f"Failed to load model: {e}")
-            return # หยุดการทำงานหากโหลดโมเดลไม่สำเร็จ
+            return
 
-        # 2. เชื่อมต่อกับ USB Webcam
-        # ตัวแปร camera_index: ใส่เลข 0 สำหรับกล้องตัวแรกที่เชื่อมต่อกับคอมพิวเตอร์
         self.camera_index = 1
         self.cap = cv2.VideoCapture(self.camera_index)
 
@@ -30,27 +29,35 @@ class YoloWebcamTestNode(Node):
             return
         self.get_logger().info(f"Webcam (index {self.camera_index}) connected successfully!")
 
-        # 3. สร้าง Timer เพื่อดึงภาพมาประมวลผลเป็นระยะๆ
-        # ตัวแปร timer_period: 0.033 วินาที คือการทำงานประมาณ 30 FPS (1 / 30)
+        # --- เพิ่ม Publisher สำหรับส่งสถานะประตูลิฟต์ ---
+        self.pub_door_status = self.create_publisher(Bool, '/elevator_door_status', 10)
+
         timer_period = 0.033 
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
     def timer_callback(self):
-        # อ่านภาพจากกล้อง
         ret, frame = self.cap.read()
-
         if not ret:
             self.get_logger().error("Failed to read frame from webcam.")
             return
 
         try:
-            # นำภาพไปประมวลผลด้วยโมเดล AI
-            results = self.model(frame)
-            
-            # ดึงภาพที่ถูกวาดกรอบ (Bounding Box) และ Label เรียบร้อยแล้ว
+            results = self.model(frame, verbose=False)
             annotated_frame = results[0].plot()
             
-            # แสดงผลภาพผ่านหน้าต่าง OpenCV
+            # --- เช็คว่าเจอ "elevator_door_open" ไหม ---
+            door_is_open = False
+            for box in results[0].boxes:
+                cls_id = int(box.cls[0])
+                cls_name = self.model.names[cls_id]
+                # ⚠️ ตรวจสอบชื่อคลาสให้ตรงกับที่เทรนมา (ถ้าพิมพ์ผิดแก้ตรงนี้ได้เลย)
+                if cls_name == "elevator_door_open" or cls_name == "elevator_door_oprn":
+                    door_is_open = True
+                    break
+            
+            # ส่งสถานะประตูให้ Main Processor
+            self.pub_door_status.publish(Bool(data=door_is_open))
+            
             cv2.imshow("YOLO USB Webcam Test", annotated_frame)
             cv2.waitKey(1)
 
@@ -58,7 +65,6 @@ class YoloWebcamTestNode(Node):
             self.get_logger().error(f"Error processing image: {e}")
 
     def destroy_node(self):
-        # คืนทรัพยากรกล้องให้ระบบเมื่อเราปิด Node
         if hasattr(self, 'cap') and self.cap.isOpened():
             self.cap.release()
             self.get_logger().info("Released webcam resource.")
@@ -67,7 +73,6 @@ class YoloWebcamTestNode(Node):
 def main(args=None):
     rclpy.init(args=args)
     node = YoloWebcamTestNode()
-    
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
