@@ -1,3 +1,24 @@
+# 🦾 Senior Project: WhitePost - Main Arm Control
+
+This repository contains the control system for a 5-DOF Robotic Arm and End Effector using ROS2, running on Raspberry Pi 5 (Arm Station) and Raspberry Pi Zero 2W (End Effector).
+
+## 📌 Table of Contents
+1. [Installation & Setup](#1-installation--setup)
+2. [Remote Access (SSH)](#2-remote-access-ssh)
+3. [Networking (Hotspot Configuration)](#3-networking-hotspot-configuration)
+4. [ROS2 Execution](#4-ros2-execution)
+5. [Control Interface (Topic Commands)](#5-control-interface-topic-commands)
+6. [Hardware & Vision (Pi Zero)](#6-hardware--vision-pi-zero)
+7. [Maintenance & Troubleshooting](#7-maintenance--troubleshooting)
+
+---
+
+## 1. Installation & Setup
+Clone the repository to your local machine or Raspberry Pi:
+```bash
+git clone [https://github.com/EARTH157/Senior_Project-WhitePost-Main_Arm.git](https://github.com/EARTH157/Senior_Project-WhitePost-Main_Arm.git)
+cd Senior_Project-WhitePost-Main_Arm
+
 # Clone this repository
 
 git clone https://github.com/EARTH157/Senior_Project-WhitePost-Main_Arm.git
