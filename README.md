@@ -15,10 +15,9 @@ This repository contains the control system for a 5-DOF Robotic Arm and End Effe
 
 ## 1. Installation & Setup
 Clone the repository to your local machine or Raspberry Pi:
-```bash
+* `
 git clone [https://github.com/EARTH157/Senior_Project-WhitePost-Main_Arm.git](https://github.com/EARTH157/Senior_Project-WhitePost-Main_Arm.git)
 cd Senior_Project-WhitePost-Main_Arm
-```bash
 
 # Clone this repository
 
@@ -160,3 +159,14 @@ ros2 topic pub --once /robot_command std_msgs/msg/String "{data: 'preset'}"
 ros2 topic pub --once /robot_command std_msgs/msg/String "{data: 'track'}"
 
 ros2 topic pub --once /robot_command std_msgs/msg/String "{data: 'home'}"
+
+# --- [ 1. Setup Environment ] ---
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+
+# --- [ 2. Run Motor Nodes ] ---
+# รันมอเตอร์ตัวที่ 1
+ros2 run motor_control stepmotor1 
+
+# รันเซอร์โว
+ros2 run motor_control servodrive
