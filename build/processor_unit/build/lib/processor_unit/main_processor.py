@@ -93,6 +93,9 @@ class Main_Processor(Node):
         # 🔥 ศูนย์กลางรับคำสั่งทั้งหมด
         self.sub_command = self.create_subscription(String, '/robot_command', self.cb_robot_command, 10)
         
+        self.button_is_lit = False
+        self.sub_button_light = self.create_subscription(Bool, '/button_light_status', self.cb_button_light, 10)
+        
         # --- ตัวแปรสำหรับภารกิจกดปุ่มอัตโนมัติ ---
         self.press_sequence_state = 'IDLE' 
         self.state_start_time = 0.0
@@ -151,6 +154,9 @@ class Main_Processor(Node):
         
     def cb_door_status(self, msg):
         self.elevator_door_open = msg.data
+        
+    def cb_button_light(self, msg):
+        self.button_is_lit = msg.data
 
     def force_go_home_before_exit(self):
         self.get_logger().info("🛑 Ctrl+C Detected! กำลังสั่งกลับท่า Home ก่อนปิดระบบ...")
@@ -282,6 +288,7 @@ class Main_Processor(Node):
         self.press_sequence_state = 'IDLE' 
         self.is_moving = False 
         self.delay_ticks = 0
+        self.press_retry_count = 0
 
         # 2. 🌟 บันทึกพิกัดล่าสุดที่ซอฟต์แวร์จำได้ เพื่อใช้เป็นจุดสตาร์ท (สมูทที่สุด ไม่มีกระชาก)
         if self.current_pos is not None and self.current_joints is not None:
@@ -381,7 +388,7 @@ class Main_Processor(Node):
                         self.press_sequence_state = 'PRESSING'
                         self.pre_press_pos = list(self.current_pos)
                         self.force_detected = False
-                        self.press_retry_count = 0 
+                        #self.press_retry_count = 0 
                         
                         temp_speed = self.speed_mm_s
                         self.speed_mm_s = 50.0 
@@ -497,22 +504,18 @@ class Main_Processor(Node):
     def process_button_press_sequence(self):
         # 1. จังหวะกำลังยื่นแขนไปกด
         if self.press_sequence_state == 'PRESSING':
-            # เช็คว่าเซ็นเซอร์ชนหรือยัง
             if self.force_detected:
                 self.get_logger().info("🚨 Force Active! ชนแล้ว เริ่มเช็คประตูลิฟต์และกำลังถอยกลับ...")
                 self.is_moving = False 
                 
-                # สั่งถอยกลับ
                 temp_speed = self.speed_mm_s
                 self.speed_mm_s = 50.0 
                 self.move_to_absolute(self.pre_press_pos[0], self.pre_press_pos[1], self.pre_press_pos[2])
                 self.speed_mm_s = temp_speed
                 
-                # 🟢 เริ่มจับเวลาตั้งแต่จังหวะที่กดโดนเลย!
                 self.check_door_start_time = time.time() 
                 self.press_sequence_state = 'WAIT_FOR_RETRACT'
                 
-            # ถ้าเดินจนสุดระยะที่เผื่อไว้แต่ไม่ชน (กดพลาด)
             elif not self.is_moving:
                 self.get_logger().warn("⚠️ กดจนสุดแขนแล้วแต่ไม่เจอเซ็นเซอร์ ถอยกลับ...")
                 temp_speed = self.speed_mm_s
@@ -520,60 +523,72 @@ class Main_Processor(Node):
                 self.move_to_absolute(self.pre_press_pos[0], self.pre_press_pos[1], self.pre_press_pos[2])
                 self.speed_mm_s = temp_speed
                 
-                # 🟢 เริ่มจับเวลาเผื่อไว้เช่นกัน
                 self.check_door_start_time = time.time()
                 self.press_sequence_state = 'WAIT_FOR_RETRACT'
                 
-        # 2. รอถอยกลับ และเช็คประตูไปพร้อมๆ กัน!
+        # 2. รอถอยกลับ
         elif self.press_sequence_state == 'WAIT_FOR_RETRACT':
-            # 🟢 ถ้าเจอประตูเปิดปุ๊บ "ระหว่างกำลังถอย" ให้กลับ Home ทันที
-            if self.elevator_door_open:
-                self.get_logger().info("🚪 ประตูลิฟต์เปิดแล้ว! (เจอระหว่างถอย) สั่งแขนกลับท่า Home ทันที")
+            # 🟢 เช็คว่าหุ่นอยู่ด้านหน้าหรือไม่ (Y >= 0)
+            is_front = self.pre_press_pos[1] >= 0
+            
+            # 🟢 ลอจิก OR: ประตูเปิด หรือ (อยู่ด้านหน้า และ ไฟปุ่มติด)
+            if self.elevator_door_open or (is_front and self.button_is_lit):
+                self.get_logger().info("✅ ประตูเปิด หรือ ไฟปุ่มติดแล้ว! สั่งแขนกลับท่า Home ทันที")
                 self.press_retry_count = 0
                 self.press_sequence_state = 'IDLE'
                 self.execute_go_home()
                 return
 
-            # ถ้าถอยเสร็จแล้วแต่ประตูยังไม่เปิด ให้ไปรอเช็คต่อ
             if not self.is_moving:
-                self.get_logger().info("✅ ถอยกลับถึงจุดปลอดภัยแล้ว! เฝ้าดูประตูต่อ...")
+                self.get_logger().info("✅ ถอยกลับถึงจุดปลอดภัยแล้ว! เฝ้าดูประตู/ไฟปุ่ม ต่อ...")
                 self.press_sequence_state = 'CHECK_DOOR'
                 
-        # 3. เฝ้าดูประตูจนกว่าจะครบเวลาที่กำหนด
+        # 3. เฝ้าดูประตู/ไฟปุ่ม จนกว่าจะครบเวลาที่กำหนด
         elif self.press_sequence_state == 'CHECK_DOOR':
-            # 🟢 ถ้าประตูเปิดตอนที่จอดรอดูอยู่
-            if self.elevator_door_open:
-                self.get_logger().info("🚪 ประตูลิฟต์เปิดแล้ว! สั่งแขนกลับท่า Home ทันที")
+            is_front = self.pre_press_pos[1] >= 0
+            
+            # 🟢 ลอจิก OR: ใช้แบบเดียวกันตอนที่จอดเฝ้าดู
+            if self.elevator_door_open or (is_front and self.button_is_lit):
+                self.get_logger().info("✅ ประตูเปิด หรือ ไฟปุ่มติดแล้ว! สั่งแขนกลับท่า Home ทันที")
                 self.press_retry_count = 0
                 self.press_sequence_state = 'IDLE'
                 self.execute_go_home()
                 return
                 
-            # คำนวณเวลาที่ผ่านไป (นับตั้งแต่ตอนที่ชนเซ็นเซอร์)
             elapsed = time.time() - self.check_door_start_time
             
-            # ให้เวลารอประตูลิฟต์ตอบสนอง 3.0 วินาที (ปรับเพิ่ม/ลดได้)
-            if elapsed >= 3.0: 
+            if elapsed >= 1.5: 
                 self.press_retry_count += 1
                 if self.press_retry_count < 5:
-                    self.get_logger().warn(f"⚠️ หมดเวลา! ประตูยังไม่เปิด (กำลังกดซ้ำครั้งที่ {self.press_retry_count + 1}/5)")
+                    self.get_logger().warn(f"⚠️ ประตูยังไม่เปิด! เตรียม Track ใหม่อีกครั้ง (รอบที่ {self.press_retry_count + 1}/5)")
                     
-                    self.press_sequence_state = 'PRESSING'
-                    self.force_detected = False
-                    
-                    # พุ่งเข้าไปกดอีกรอบ
-                    temp_speed = self.speed_mm_s
-                    self.speed_mm_s = 50.0 
-                    # 🟢 [แก้ไข] กดซ้ำโดยดูทิศหน้า/หลังด้วย
-                    push_dir = 1.0 if self.pre_press_pos[1] >= 0 else -1.0
-                    self.move_to_offset(0.0, 150.0 * push_dir, 0.0) 
-                    
-                    self.speed_mm_s = temp_speed
+                    # 🟢 เปลี่ยน State มารอเวลาเล็กน้อยก่อน Track
+                    self.press_sequence_state = 'WAIT_BEFORE_RETRACK'
+                    self.retrack_start_time = time.time() # เริ่มจับเวลาพัก
                 else:
-                    self.get_logger().error("❌ กดครบ 5 ครั้งแล้วประตูยังไม่เปิด! ยกเลิกภารกิจกลับท่า Start")
+                    self.get_logger().error("❌ กดครบ 5 ครั้งแล้วประตูยังไม่เปิด! ยกเลิกภารกิจกลับท่าพัก...")
                     self.press_retry_count = 0
                     self.press_sequence_state = 'IDLE'
-                    self.execute_go_start()
+                    
+                    # 🟢 ตรวจสอบว่าอยู่ด้านหน้า (Y >= 0) หรือด้านหลัง (Y < 0)
+                    if self.pre_press_pos[1] >= 0:
+                        self.get_logger().info("กลับไปรอที่ท่า Start (ด้านหน้า)")
+                        self.execute_go_start()
+                    else:
+                        self.get_logger().info("กลับไปรอที่ท่า Start Back (ด้านหลัง)")
+                        self.execute_go_start_back()
+
+        # 4. 🟢 [ใหม่] รอเวลาสักเล็กน้อย แล้วเปิดโหมด Track อีกรอบ
+        elif self.press_sequence_state == 'WAIT_BEFORE_RETRACK':
+            elapsed = time.time() - self.retrack_start_time
+            
+            # ตั้งเวลาหน่วงก่อน Track ใหม่ที่นี่ (เช่น 1.5 วินาที)
+            if elapsed >= 1.5: 
+                self.get_logger().info("🔍 เล็งหาปุ่มลิฟต์เพื่อ Track ใหม่...")
+                self.press_sequence_state = 'IDLE'      # เคลียร์สถานะกดปุ่ม
+                self.is_tracking_mode = True            # เปิดโหมดรับค่ากล้อง
+                self.lock_start_time = 0.0              # รีเซ็ตตัวนับเวลาก่อนกด
+                self.pub_tracking_ready.publish(Bool(data=True)) # บอกกล้องให้ส่งภาพมาได้เลย
     
     def calibration_routine(self):
         if self.system_ready: return

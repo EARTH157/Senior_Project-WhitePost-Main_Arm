@@ -89,6 +89,7 @@ class SocketTrackerNode(Node):
         self.sub_target = self.create_subscription(String, '/set_target_label', self.cb_set_target, 10)
         self.cmd_pub = self.create_publisher(String, '/robot_command', 10)
         self.cmd_sub = self.create_subscription(String, '/robot_command', self.cb_robot_command, 10)
+        self.pub_button_light = self.create_publisher(Bool, '/button_light_status', 10)
         
         print("Controls: 't' = Toggle, 'q' = Quit")
         
@@ -213,6 +214,9 @@ class SocketTrackerNode(Node):
                     if len(boxes) > 0:
                         largest_box = None
                         max_radius = 0
+                        
+                        # 🟢 เตรียมตัวแปรเก็บสถานะไฟในเฟรมนี้
+                        button_is_lit = False 
 
                         for box in boxes:
                             conf = float(box.conf[0].cpu().numpy())
@@ -223,14 +227,47 @@ class SocketTrackerNode(Node):
                             cx, cy = (x1 + x2) / 2.0, (y1 + y2) / 2.0
                             r = max(x2 - x1, y2 - y1) / 2.0 
 
-                            if self.target_label.lower() != "all" and cls_name.lower() != self.target_label.lower():
+                            # 1. เช็คเป้าหมาย (ถ้าไม่ใช่เป้าให้ข้ามไป)
+                            is_target = (self.target_label.lower() == "all" or cls_name.lower() == self.target_label.lower())
+                            
+                            if not is_target:
                                 cv2.rectangle(display_frame, (int(x1), int(y1)), (int(x2), int(y2)), (100, 100, 100), 1)
-                                continue
-
+                                continue 
+                            
+                            # 2. ตีกรอบเป้าหมายสีเขียวทันที
                             cv2.rectangle(display_frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
+                            cv2.putText(display_frame, cls_name, (int(x1), int(y1)-5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+
+                            # 3. 🟢 ตรวจเช็คสีแดง (แก้ใหม่: ให้เช็คทุกปุ่มที่เป็นเป้าหมาย ไม่ล็อคชื่อแล้ว)
+                            roi = frame[int(y1):int(y2), int(x1):int(x2)]
+                            if roi.size > 0:
+                                hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+                                
+                                lower_red1, upper_red1 = np.array([0, 5, 150]), np.array([50, 20, 255])
+                                #lower_red2, upper_red2 = np.array([160, 100, 100]), np.array([180, 255, 255])
+                                mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
+                                #mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
+                                
+                                red_mask = mask1 #+ mask2
+                                cv2.imshow("Red Mask Debug", red_mask)
+                                
+                                red_pixels = cv2.countNonZero(mask1 )#+ mask2)
+                                red_pixels = cv2.countNonZero(red_mask)
+                                box_area = roi.shape[0] * roi.shape[1]
+                                
+                                # 🟢 ปรับ Threshold ลงมาเหลือแค่ 5% (0.05) เพราะเส้นไฟในปุ่มมันบางมากครับ
+                                if box_area > 0 and (red_pixels / box_area) > 0.05:
+                                    button_is_lit = True
+                                    self.draw_text_bg(display_frame, "LIT!", (int(x1), int(y1)-25), 0.6, (0, 0, 255))
+                                    cv2.rectangle(display_frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 3)
+
+                            # 4. เก็บค่าเป้าหมายที่ใหญ่ที่สุดส่งให้หุ่นยนต์เดินตาม
                             if r > max_radius:
                                 max_radius = r
                                 largest_box = (cx, cy, r)
+
+                        # 🟢 ส่งข้อความบอกสถานะไฟไปให้ Main Processor ทันที
+                        self.pub_button_light.publish(Bool(data=button_is_lit))
 
                         if largest_box is not None:
                             found_valid_target = True
@@ -306,7 +343,7 @@ class SocketTrackerNode(Node):
                             self.get_logger().info("🎯 [TARGET LOCKED] Sending Stop/Press signal to Robot")
                         else:
                             self.get_logger().info(f"📤 Sent Error: X={msg.x:.1f}, Y={msg.y:.1f}, Z={msg.z:.1f}")
-
+                    
                     cv2.imshow("Robot View", display_frame)
                     
                     key = cv2.waitKey(1) & 0xFF

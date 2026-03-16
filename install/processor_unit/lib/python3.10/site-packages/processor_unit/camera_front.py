@@ -4,7 +4,7 @@ import cv2
 import os
 from ament_index_python.packages import get_package_share_directory
 from ultralytics import YOLO
-from std_msgs.msg import Bool # <--- เพิ่มไลบรารีส่งข้อความ
+from std_msgs.msg import Bool 
 
 class YoloWebcamTestNode(Node):
     def __init__(self):
