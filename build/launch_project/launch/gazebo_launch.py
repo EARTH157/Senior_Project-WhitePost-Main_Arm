@@ -1,1 +1,0 @@
-/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/src/launch_project/launch/gazebo_launch.py

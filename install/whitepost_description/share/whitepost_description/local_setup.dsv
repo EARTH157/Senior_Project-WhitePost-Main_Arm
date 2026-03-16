@@ -1,1 +1,2 @@
-/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/whitepost_description/ament_cmake_environment_hooks/local_setup.dsv
+source;share/whitepost_description/environment/ament_prefix_path.sh
+source;share/whitepost_description/environment/path.sh

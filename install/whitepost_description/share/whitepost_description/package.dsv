@@ -1,8 +1,6 @@
-source;share/whitepost_description/hook/cmake_prefix_path.ps1
 source;share/whitepost_description/hook/cmake_prefix_path.dsv
 source;share/whitepost_description/hook/cmake_prefix_path.sh
 source;share/whitepost_description/local_setup.bash
 source;share/whitepost_description/local_setup.dsv
-source;share/whitepost_description/local_setup.ps1
 source;share/whitepost_description/local_setup.sh
 source;share/whitepost_description/local_setup.zsh
