@@ -15,10 +15,14 @@ class YoloWebcamFrontNode(Node):
         self.camera_ready = False
         self.last_retry_time = 0.0
         
+        # 🟢 ตัวแปรสำหรับคุม Skip Frame
+        self.frame_count = 0
+        self.skip_frames = 3 # ประมวลผล 1 เฟรม ข้าม 2 เฟรม (ลดภาระลง 66%)
+        
         # เก็บ Path ไว้ใช้ตอนโหลดซ้ำ
         package_share_dir = get_package_share_directory('processor_unit')
         self.model_path = os.path.join(package_share_dir, 'elevator_door.pt')
-        self.camera_index = 0 
+        self.camera_index = 0
         
         self.get_logger().info("Starting YOLO Node (FRONT). Checking AI and Camera...")
 
@@ -53,28 +57,38 @@ class YoloWebcamFrontNode(Node):
                 if self.model_loaded and not self.camera_ready:
                     self.cap = cv2.VideoCapture(self.camera_index)
                     if self.cap.isOpened():
+                        # 🟢 ลดเหลือ 640x480 ทันทีที่เปิดกล้อง เพื่อประหยัด CPU/RAM
+                        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                        
                         self.camera_ready = True
-                        self.get_logger().info("✅ Webcam FRONT connected!")
+                        self.get_logger().info("✅ Webcam FRONT connected (640x480)!")
                     else:
                         self.get_logger().error("⏳ Camera FRONT not found. Retrying...")
             return # ข้ามการทำงานส่วนอื่นไปก่อนจนกว่าจะพร้อม
 
         # --- ส่วนการทำงานปกติเมื่อกล้องและ AI พร้อม ---
         if not self.is_active:
-            self.cap.grab() 
+            self.cap.grab() # ดึงภาพทิ้งไปเฉยๆ เพื่อเคลียร์ Buffer ไม่ให้ภาพดีเลย์ตอนกลับมา Active
             return
 
         ret, frame = self.cap.read()
         
-        # 🟢 [ระบบป้องกันสายหลุด] ถ้าจู่ๆ อ่านภาพไม่ได้ (สายหลวม/หลุด) ให้รีเซ็ตสถานะกล้อง
+        # [ระบบป้องกันสายหลุด]
         if not ret: 
             self.get_logger().warn("🚨 FRONT Camera Disconnected! Entering reconnect mode...")
             self.camera_ready = False
             self.cap.release()
             return
 
+        # 🟢 [ระบบ Skip Frame] นับเฟรมและเช็คว่าถึงรอบที่ต้องประมวลผลหรือยัง
+        self.frame_count += 1
+        if self.frame_count % self.skip_frames != 0:
+            return # ถ้าไม่ใช่รอบของมัน ให้ return ออกไปเลย ไม่ต้องรัน YOLO
+
         try:
-            results = self.model(frame, verbose=False)
+            # 🟢 ลดขนาดภาพตอนรัน AI (imgsz=320) กินแรงเครื่องน้อยลงมาก
+            results = self.model(frame, imgsz=320, verbose=False)
             annotated_frame = results[0].plot()
             
             door_is_open = False

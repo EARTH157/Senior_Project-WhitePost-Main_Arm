@@ -15,9 +15,13 @@ class YoloWebcamBackNode(Node):
         self.camera_ready = False
         self.last_retry_time = 0.0
         
+        # 🟢 ตัวแปรสำหรับคุม Skip Frame
+        self.frame_count = 0
+        self.skip_frames = 3 # ประมวลผล 1 เฟรม ข้าม 2 เฟรม (ลดภาระลง 66%)
+        
         package_share_dir = get_package_share_directory('processor_unit')
         self.model_path = os.path.join(package_share_dir, 'elevator_door.pt')
-        self.camera_index = 1 # ⚠️ Index กล้องหลัง
+        self.camera_index = 2
         
         self.get_logger().info("Starting YOLO Node (BACK). Checking AI and Camera...")
 
@@ -49,8 +53,12 @@ class YoloWebcamBackNode(Node):
                 if self.model_loaded and not self.camera_ready:
                     self.cap = cv2.VideoCapture(self.camera_index)
                     if self.cap.isOpened():
+                        # 🟢 ลดเหลือ 640x480 ทันทีที่เปิดกล้อง
+                        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                        
                         self.camera_ready = True
-                        self.get_logger().info("✅ Webcam BACK connected!")
+                        self.get_logger().info("✅ Webcam BACK connected (640x480)!")
                     else:
                         self.get_logger().error("⏳ Camera BACK not found. Retrying...")
             return
@@ -68,8 +76,14 @@ class YoloWebcamBackNode(Node):
             self.cap.release()
             return
 
+        # 🟢 [ระบบ Skip Frame]
+        self.frame_count += 1
+        if self.frame_count % self.skip_frames != 0:
+            return 
+
         try:
-            results = self.model(frame, verbose=False)
+            # 🟢 ลดขนาดภาพตอนรัน AI (imgsz=320)
+            results = self.model(frame, imgsz=320, verbose=False)
             annotated_frame = results[0].plot()
             
             door_is_open = False

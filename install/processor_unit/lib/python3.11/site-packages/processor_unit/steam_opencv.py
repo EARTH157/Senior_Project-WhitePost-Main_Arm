@@ -40,8 +40,16 @@ class SocketTrackerNode(Node):
         
         self.get_logger().info("Loading YOLO model...")
         package_share_dir = get_package_share_directory('processor_unit')
-        model_path = os.path.join(package_share_dir, 'elevator_btn_4_best.pt')
-        self.model = YOLO(model_path)
+        
+        # 1. เติม self. เข้าไปเพื่อให้ run_loop มองเห็น
+        self.model_path = os.path.join(package_share_dir, 'elevator_btn_4_best.pt') 
+        
+        try:
+            self.model = YOLO(self.model_path)
+            # 2. ต้องเซ็ตตัวนี้เป็น True ด้วย! ระบบ Auto-reconnect จะได้ไม่ทำงานซ้ำซ้อน
+            self.model_loaded = True 
+        except Exception as e:
+            self.get_logger().error(f"Init AI Failed: {e}")
         
         # --- เตรียมตัวแปรรับภาพ (Image Source) ---
         if self.simulation_mode:

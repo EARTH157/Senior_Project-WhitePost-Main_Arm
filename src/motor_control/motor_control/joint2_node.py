@@ -323,27 +323,18 @@ class Joint2Driver(Node):
         
         try:
             # ==========================================
-            # ⚙️ 3-POINT CALIBRATION (Piecewise)
+            # ⚙️ 2-POINT CALIBRATION (Linear)
             # ==========================================
-            # กำหนดจุดอ้างอิง 3 จุดตามที่คุณวัดจริง
-            P1_RAW = 1871.0   # จุดที่ 0 องศา
-            P2_RAW = 2800.0   # จุดที่ 90 องศา
-            P3_RAW = 3853.0   # จุดที่ 180 องศา (Limit Switch)
+            # อ้างอิงแค่ 2 จุดที่มั่นใจ
+            P2_RAW = 2705.0  # จุดที่ 90 องศา
+            P3_RAW = 4024.0  # จุดที่ 180 องศา (Limit Switch)
             
-            P1_ANG = 0.0
             P2_ANG = 90.0
             P3_ANG = 180.0
             
-            # 📐 คำนวณแบบแยกช่วง (Piecewise Interpolation)
-            if current_raw <= P2_RAW:
-                # --- [ช่วงที่ 1: 0 ถึง 90 องศา] ---
-                slope1 = (P2_ANG - P1_ANG) / (P2_RAW - P1_RAW)
-                real_angle = P1_ANG + slope1 * (current_raw - P1_RAW)
-                
-            else:
-                # --- [ช่วงที่ 2: 90 ถึง 180 องศา] ---
-                slope2 = (P3_ANG - P2_ANG) / (P3_RAW - P2_RAW)
-                real_angle = P2_ANG + slope2 * (current_raw - P2_RAW)
+            # 📐 คำนวณสมการเส้นตรง (ครอบคลุมตั้งแต่ 0-180 องศา)
+            slope = (P3_ANG - P2_ANG) / (P3_RAW - P2_RAW)
+            real_angle = P2_ANG + slope * (current_raw - P2_RAW)
 
         except Exception as e:
             # แจ้งเตือนหากเกิดข้อผิดพลาดในการคำนวณ
