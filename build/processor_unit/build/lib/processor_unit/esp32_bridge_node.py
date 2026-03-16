@@ -65,15 +65,20 @@ class ESP32BridgeNode(Node):
                 str_j2 = str(self.MUX_CH_J2)
                 str_j3 = str(self.MUX_CH_J3)
 
-                # ตรวจสอบและ Publish ข้อมูล AS5600
-                if devices.get(str_j1) == "as5600" and len(angles) > self.MUX_CH_J1:
-                    self.pub_raw_j1.publish(Float32(data=float(angles[self.MUX_CH_J1])))
-                    
-                if devices.get(str_j2) == "as5600" and len(angles) > self.MUX_CH_J2:
-                    self.pub_raw_j2.publish(Float32(data=float(angles[self.MUX_CH_J2])))
-                    
-                if devices.get(str_j3) == "as5600" and len(angles) > self.MUX_CH_J3:
-                    self.pub_raw_j3.publish(Float32(data=float(angles[self.MUX_CH_J3])))
+                # 🚨 [SAFETY E-STOP] ตรวจสอบว่าเซ็นเซอร์ AS5600 ทั้ง 3 ตัวเชื่อมต่ออยู่ครบหรือไม่
+                j1_ok = (devices.get(str_j1) == "as5600" and len(angles) > self.MUX_CH_J1)
+                j2_ok = (devices.get(str_j2) == "as5600" and len(angles) > self.MUX_CH_J2)
+                j3_ok = (devices.get(str_j3) == "as5600" and len(angles) > self.MUX_CH_J3)
+
+                # ถ้ามีตัวใดตัวหนึ่งหายไป ให้หยุดส่งข้อมูลทั้งหมด!
+                if not (j1_ok and j2_ok and j3_ok):
+                    self.get_logger().error("🚨 SENSOR DROP DETECTED! สายเซ็นเซอร์หลุด! หยุดส่งพิกัดเพื่อล็อคแขนกล!", throttle_duration_sec=1.0)
+                    return # ข้ามการทำงานไปเลย เพื่อให้ฝั่ง Joint เกิด Timeout พร้อมกัน
+
+                # ตรวจสอบและ Publish ข้อมูล AS5600 (ตามปกติถ้าครบ 3 ตัว)
+                self.pub_raw_j1.publish(Float32(data=float(angles[self.MUX_CH_J1])))
+                self.pub_raw_j2.publish(Float32(data=float(angles[self.MUX_CH_J2])))
+                self.pub_raw_j3.publish(Float32(data=float(angles[self.MUX_CH_J3])))
 
                 # ---------------------------------------------------------
                 # 🐛 SECTION DEBUG: Print โชว์สถานะทุกๆ 50 รอบ (ประมาณ 0.5 วิ)

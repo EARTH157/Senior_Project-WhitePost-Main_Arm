@@ -56,6 +56,7 @@ class Joint1Driver(Node):
         
         # (เพิ่มตรงที่เคยเป็น Setup I2C)
         self.latest_raw_sensor_val = None
+        self.last_sensor_rx_time = time.time() # 🟢 เพิ่มบรรทัดนี้: ตัวจับเวลา Watchdog
         # สมมติเป็น joint1_node ก็ subscribe '/sensor/as5600/joint1' (แก้ชื่อเลขให้ตรงตามไฟล์)
         self.create_subscription(Float32, '/sensor/as5600/joint1', self.raw_sensor_callback, 10)
 
@@ -88,6 +89,7 @@ class Joint1Driver(Node):
 
     def raw_sensor_callback(self, msg: Float32):
         self.latest_raw_sensor_val = msg.data
+        self.last_sensor_rx_time = time.time() # 🟢 เพิ่มบรรทัดนี้: รีเซ็ตเวลาเมื่อเซ็นเซอร์ปกติ
 
     # ---------------------------------------------------------
     # 💾 STATE CHECKING
@@ -221,6 +223,15 @@ class Joint1Driver(Node):
         
         while self.running and rclpy.ok():
             time.sleep(0.02) # รันที่ประมาณ 50Hz (ทุกๆ 20ms)
+            
+            # 🚨 [SAFETY E-STOP] ถ้าไม่ได้รับค่าเซ็นเซอร์เกิน 0.5 วินาที
+            if time.time() - self.last_sensor_rx_time > 0.5:
+                if self.is_homed:
+                    self.get_logger().error("🚨 SENSOR TIMEOUT! ล็อคมอเตอร์ฉุกเฉินและแข็งค้าง!", throttle_duration_sec=1.0)
+                self.target_hz = 0.0
+                self.current_hz = 0.0
+                self.is_homed = False # ยกเลิกสถานะเพื่อไม่รับคำสั่งขยับต่อ
+                continue
 
             if not self.is_homed or self.current_target is None:
                 self.target_hz = 0.0

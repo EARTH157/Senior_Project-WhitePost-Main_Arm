@@ -33,6 +33,11 @@ class SocketTrackerNode(Node):
         self.declare_parameter('simulation_mode', False)
         self.simulation_mode = self.get_parameter('simulation_mode').value
         
+        # 🟢 ตัวแปรสำหรับ Auto Reconnect
+        self.model_loaded = False
+        self.camera_ready = False
+        self.last_retry_time = 0.0
+        
         self.get_logger().info("Loading YOLO model...")
         package_share_dir = get_package_share_directory('processor_unit')
         model_path = os.path.join(package_share_dir, 'elevator_btn_4_best.pt')
@@ -150,44 +155,96 @@ class SocketTrackerNode(Node):
             while rclpy.ok(): 
                 rclpy.spin_once(self, timeout_sec=0.01)
 
+                current_time = time.time()
+
+                # 🟢 [ระบบ Auto-Reconnect] สำหรับ AI โมเดล
+                if not self.model_loaded:
+                    if current_time - self.last_retry_time > 2.0:
+                        self.last_retry_time = current_time
+                        try:
+                            self.get_logger().info("⏳ Loading YOLO model...")
+                            self.model = YOLO(self.model_path)
+                            self.model_loaded = True
+                            self.get_logger().info("✅ YOLO model loaded!")
+                        except Exception as e:
+                            self.get_logger().error(f"AI Failed: {e}. Retrying...")
+                    continue # ยังไม่โหลดภาพถ้า AI ไม่พร้อม
+
+                # 🟢 [ระบบ Auto-Reconnect] สำหรับกล้อง / Socket
+                if not self.camera_ready:
+                    if current_time - self.last_retry_time > 2.0:
+                        self.last_retry_time = current_time
+                        if self.simulation_mode:
+                            self.cap = cv2.VideoCapture(0)
+                            if self.cap.isOpened():
+                                self.camera_ready = True
+                                self.get_logger().info("✅ Webcam connected!")
+                            else:
+                                self.get_logger().error("⏳ Webcam not found. Retrying...")
+                        else:
+                            try:
+                                if self.s is None:
+                                    os.environ["QT_QPA_PLATFORM"] = "xcb"
+                                    self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                                    self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                                    self.s.bind(('0.0.0.0', 8000))
+                                    self.s.listen(5)
+                                    self.s.settimeout(2.0) # กันไม่ให้ Accept ค้างจน ROS2 หลุด
+                                
+                                self.get_logger().info("🚀 Waiting for Socket connection...")
+                                self.conn, self.addr = self.s.accept()
+                                self.conn.settimeout(2.0)
+                                self.camera_ready = True
+                                self.payload_size = struct.calcsize("Q")
+                                self.get_logger().info(f"✅ Connected by: {self.addr}")
+                            except socket.timeout:
+                                pass # รอ connection ต่อไป
+                            except Exception as e:
+                                self.get_logger().error(f"Socket Error: {e}")
+                    continue
+
                 # --- 🚀 ส่วนดึงข้อมูลภาพ (Image Fetching) ---
+                frame = None
                 if self.simulation_mode:
-                    # โหมด Simulation: อ่านจากกล้องคอมโดยตรง
                     ret, frame = self.cap.read()
                     if not ret:
+                        self.get_logger().warn("🚨 Webcam Disconnected! Retrying...")
+                        self.camera_ready = False
+                        if self.cap: self.cap.release()
                         continue
-                    # กลับด้านภาพให้เหมือนกระจก (Flip) จะได้คุมง่ายขึ้นในคอม
                     frame = cv2.flip(frame, 1)
                 else:
-                    # โหมด Hardware: อ่านจาก Socket Buffer เหมือนเดิม
-                    while len(data) < self.payload_size:
-                        packet = self.conn.recv(4*1024)
-                        if not packet: break
-                        data += packet
-                    
-                    if not data: break
-                    
-                    packed_msg_size = data[:self.payload_size]
-                    data = data[self.payload_size:]
-                    msg_size = struct.unpack("Q", packed_msg_size)[0]
-                    
-                    while len(data) < msg_size:
-                        data += self.conn.recv(4*1024)
+                    try:
+                        while len(data) < self.payload_size:
+                            packet = self.conn.recv(4*1024)
+                            if not packet: raise ConnectionError("Stream ended")
+                            data += packet
                         
-                    frame_data = data[:msg_size]
-                    data = data[msg_size:]
+                        packed_msg_size = data[:self.payload_size]
+                        data = data[self.payload_size:]
+                        msg_size = struct.unpack("Q", packed_msg_size)[0]
+                        
+                        while len(data) < msg_size:
+                            packet = self.conn.recv(4*1024)
+                            if not packet: raise ConnectionError("Stream ended")
+                            data += packet
+                            
+                        frame_data = data[:msg_size]
+                        data = data[msg_size:]
 
-                    # 🚀 ทริคที่ 1: เช็คเงื่อนไข Skip เฟรม "ก่อน" ถอดรหัสภาพ!
-                    self.frame_counter += 1
-                    if self.frame_counter % (self.SKIP_FRAMES + 1) != 0:
-                        continue 
+                        self.frame_counter += 1
+                        if self.frame_counter % (self.SKIP_FRAMES + 1) != 0: continue 
 
-                    # ถอดรหัสภาพจาก Buffer
-                    frame = cv2.imdecode(np.frombuffer(frame_data, np.uint8), cv2.IMREAD_COLOR)
-                    if frame is not None:
-                        # กล้องที่ติดบนหุ่นอาจจะวางกลับหัว (180 องศา)
-                        frame = cv2.rotate(frame, cv2.ROTATE_180)
-
+                        frame = cv2.imdecode(np.frombuffer(frame_data, np.uint8), cv2.IMREAD_COLOR)
+                        if frame is not None:
+                            frame = cv2.rotate(frame, cv2.ROTATE_180)
+                    except Exception as e:
+                        self.get_logger().warn(f"🚨 Socket Disconnected! ({e}). Retrying...")
+                        self.camera_ready = False
+                        data = b""
+                        if self.conn: self.conn.close()
+                        continue
+                    
                 # --- 🧠 ส่วนประมวลผล (Processing) ---
                 # จากจุดนี้ไป ทั้ง 2 โหมดจะใช้ Logic เดียวกันทั้งหมด
                 if frame is not None:

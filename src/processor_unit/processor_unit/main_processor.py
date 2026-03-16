@@ -485,9 +485,25 @@ class Main_Processor(Node):
     def cb_angle2(self, msg): self.current_angles[2] = msg.data
     def cb_angle3(self, msg): self.current_angles[3] = msg.data
         
-    def cb_cal1(self, msg): self.cal_status[1] = msg.data
-    def cb_cal2(self, msg): self.cal_status[2] = msg.data
-    def cb_cal3(self, msg): self.cal_status[3] = msg.data
+    def trigger_estop(self, joint_name):
+        self.get_logger().error(f"🚨 E-STOP TRIGGERED! {joint_name} เซ็นเซอร์หลุด! ยกเลิกภารกิจทั้งหมดทันที!")
+        self.system_ready = False
+        self.is_moving = False
+        self.is_tracking_mode = False
+        self.press_sequence_state = 'IDLE'
+        self.homing_phase = 0
+
+    def cb_cal1(self, msg): 
+        self.cal_status[1] = msg.data
+        if not msg.data and self.system_ready: self.trigger_estop("Joint 1")
+
+    def cb_cal2(self, msg): 
+        self.cal_status[2] = msg.data
+        if not msg.data and self.system_ready: self.trigger_estop("Joint 2")
+
+    def cb_cal3(self, msg): 
+        self.cal_status[3] = msg.data
+        if not msg.data and self.system_ready: self.trigger_estop("Joint 3")
     
     def move_to_absolute(self, x, y, z):
         """ สั่งหุ่นยนต์ไปที่พิกัด x, y, z ทันที (โหมด LINEAR) """
@@ -860,11 +876,11 @@ class Main_Processor(Node):
         if t == 1.0:
             if self.homing_phase == 1:
                 # จบเฟส 1: เริ่มเฟส 2 (หมุนฐาน J1 ไป 90 องศา)
-                self.get_logger().info("🏠 เฟส 1 เสร็จสิ้น! เริ่มเฟส 2 (หมุนฐาน J1 ไป 90 องศา)")
+                self.get_logger().info("🏠 เฟส 1 เสร็จสิ้น! เริ่มเฟส 2 (หมุนฐาน J1 เข้า 90 องศา)")
                 self.homing_phase = 2
                 self.start_joints = list(self.current_joints)
                 
-                # เป้าหมายเฟส 2: เปลี่ยนแค่ J1 นอกนั้นค้างไว้
+                # เป้าหมายเฟส 2: เปลี่ยนแค่ J1 เป็น 90 (ส่วน J4 ยังคงค้างชูไว้ที่ 180)
                 self.target_joints = [
                     90.0, 
                     self.current_joints[1], 
@@ -883,24 +899,26 @@ class Main_Processor(Node):
                 return 
 
             elif self.homing_phase == 2:
-                # (เผื่อไว้) เช็คให้แน่ใจว่า J1 หมุนมาถึง 90 องศาจริงๆ ก่อนจะพับแขนลง
+                # เช็คให้แน่ใจว่า J1 หมุนมาถึง 90 องศาจริงๆ ก่อนจะพับแขนลง
                 curr_j1 = self.current_angles[1] if hasattr(self, 'current_angles') else None
                 if curr_j1 is not None and abs(curr_j1 - 90.0) > 2.0:
                     if self.step_current % 25 == 0: 
                         self.get_logger().info(f"⏳ กำลังรอ Joint 1 หมุนเข้าที่ 90°... (ปัจจุบัน: {curr_j1:.1f}°)")
                     return 
 
-                # จบเฟส 2: เริ่มเฟส 3 (พับ J2 ลงไปที่ 180 องศา)
-                self.get_logger().info("🏠 เฟส 2 เสร็จสิ้น! เริ่มเฟส 3 (พับ Joint 2 ลงไปที่ 180 องศา)")
+                # 🟢 จบเฟส 2: เริ่มเฟส 3 (พับ J2 ลงไปที่ 180 องศา และพับ J4 กลับลงไปที่ 90 องศา)
+                self.get_logger().info("🏠 เฟส 2 เสร็จสิ้น! เริ่มเฟส 3 (พับแขนเก็บ: J2->180°, J4->90°)")
                 self.homing_phase = 3
                 self.start_joints = list(self.current_joints)
                 
-                # เป้าหมายเฟส 3: ท่า Home สุดท้าย [90, 180, 8, 90, 90]
+                # เป้าหมายเฟส 3: ท่า Home สุดท้าย 
                 self.target_joints = [90.0, 180.0, 8.0, 90.0, 90.0]
                 
                 diff_j2 = abs(180.0 - self.current_joints[1])
-                duration = diff_j2 / 30.0
-                if duration < 1.5: duration = 1.5 # ให้เวลาพับลงนิ่มๆ หน่อย
+                diff_j4 = abs(90.0 - self.current_joints[3])
+                max_diff = max(diff_j2, diff_j4) # เอาจอยท์ที่หมุนไกลสุดมาคิดเวลา
+                duration = max_diff / 30.0
+                if duration < 1.5: duration = 1.5 # ให้เวลาพับลงนิ่มๆ
                 
                 self.step_total = int(duration / self.timer_period)
                 if self.step_total == 0: self.step_total = 1
@@ -1032,6 +1050,12 @@ class Main_Processor(Node):
         
         angle_joint1 = math.degrees(theta1)
         angle_joint2 = math.degrees(theta2)
+        
+        # 🟢 1. กฎข้อที่ 1: จำกัดระยะการพับของ J2 เมื่อ J1 อยู่ระหว่าง 70 ถึง 110 องศา
+        if 70.0 <= angle_joint1 <= 110.0:
+            if not (0.0 <= angle_joint2 <= 150.0):
+                # โยน Error ออกมาเพื่อสั่งเบรกหุ่นยนต์ทันทีถ้าคำนวณแล้วเกินระยะ
+                raise ValueError(f"Safety Limit: เมื่อ J1={angle_joint1:.1f}°, J2 ต้องไม่เกิน 150° (คำนวณได้ {angle_joint2:.1f}°)")
         
         angle_joint3 = math.degrees(theta3)
         #angle_joint3 = abs(180.0 - math_angle_j3)

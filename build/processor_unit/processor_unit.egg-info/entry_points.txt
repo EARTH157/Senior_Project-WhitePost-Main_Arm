@@ -1,4 +1,5 @@
 [console_scripts]
+camera_back = processor_unit.camera_back:main
 camera_front = processor_unit.camera_front:main
 esp32_bridge_node = processor_unit.esp32_bridge_node:main
 main_processor = processor_unit.main_processor:main

@@ -2,6 +2,7 @@ import rclpy
 from rclpy.node import Node
 import cv2
 import os
+import time
 from ament_index_python.packages import get_package_share_directory
 from ultralytics import YOLO
 from std_msgs.msg import Bool, String
@@ -10,39 +11,62 @@ class YoloWebcamBackNode(Node):
     def __init__(self):
         super().__init__('yolo_webcam_back_node')
         
-        self.get_logger().info("Loading YOLO model (BACK)...")
-        try:
-            package_share_dir = get_package_share_directory('processor_unit')
-            model_path = os.path.join(package_share_dir, 'elevator_door.pt')
-            self.model = YOLO(model_path)
-            self.get_logger().info("YOLO BACK loaded!")
-        except Exception as e:
-            self.get_logger().error(f"Failed to load model: {e}")
-            return
-
-        # ⚠️ ตั้ง Index ของกล้องหลังให้ถูกต้อง (เช่น 1 หรือ 2) ต้องไม่ซ้ำกับกล้องหน้า!
-        self.camera_index = 1 
-        self.cap = cv2.VideoCapture(self.camera_index)
+        self.model_loaded = False
+        self.camera_ready = False
+        self.last_retry_time = 0.0
+        
+        package_share_dir = get_package_share_directory('processor_unit')
+        self.model_path = os.path.join(package_share_dir, 'elevator_door.pt')
+        self.camera_index = 1 # ⚠️ Index กล้องหลัง
+        
+        self.get_logger().info("Starting YOLO Node (BACK). Checking AI and Camera...")
 
         self.pub_door_status = self.create_publisher(Bool, '/elevator_door_status', 10)
-        
-        # 🟢 รับคำสั่งว่าให้ตื่นหรือหลับ 
         self.is_active = False
         self.sub_active = self.create_subscription(String, '/active_camera', self.cb_active, 10)
 
         self.timer = self.create_timer(0.033, self.timer_callback)
 
     def cb_active(self, msg):
-        # 🟢 ตื่นเฉพาะตอนที่ได้คำสั่ง "back"
         self.is_active = (msg.data.strip().lower() == "back")
 
     def timer_callback(self):
+        current_time = time.time()
+        
+        # 🟢 [ระบบ Auto-Reconnect]
+        if not self.model_loaded or not self.camera_ready:
+            if current_time - self.last_retry_time > 2.0:
+                self.last_retry_time = current_time
+                
+                if not self.model_loaded:
+                    try:
+                        self.model = YOLO(self.model_path)
+                        self.model_loaded = True
+                        self.get_logger().info("✅ YOLO BACK loaded successfully!")
+                    except Exception as e:
+                        self.get_logger().error(f"⏳ AI Load Failed. Retrying... ({e})")
+                
+                if self.model_loaded and not self.camera_ready:
+                    self.cap = cv2.VideoCapture(self.camera_index)
+                    if self.cap.isOpened():
+                        self.camera_ready = True
+                        self.get_logger().info("✅ Webcam BACK connected!")
+                    else:
+                        self.get_logger().error("⏳ Camera BACK not found. Retrying...")
+            return
+
         if not self.is_active:
-            self.cap.grab() # ดึงภาพทิ้งเพื่อเคลียร์บัฟเฟอร์
+            self.cap.grab() 
             return
 
         ret, frame = self.cap.read()
-        if not ret: return
+        
+        # 🟢 [ระบบป้องกันสายหลุด]
+        if not ret: 
+            self.get_logger().warn("🚨 BACK Camera Disconnected! Entering reconnect mode...")
+            self.camera_ready = False
+            self.cap.release()
+            return
 
         try:
             results = self.model(frame, verbose=False)
@@ -63,7 +87,7 @@ class YoloWebcamBackNode(Node):
             self.get_logger().error(f"Error processing image: {e}")
 
     def destroy_node(self):
-        if hasattr(self, 'cap') and self.cap.isOpened():
+        if hasattr(self, 'cap') and self.cap is not None and self.cap.isOpened():
             self.cap.release()
         super().destroy_node()
 
