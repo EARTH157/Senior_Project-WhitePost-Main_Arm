@@ -1,0 +1,30 @@
+[1.507s] Invoking command in '/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/src/processor_unit': PYTHONPATH=/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/processor_unit build --build-base /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit/build install --record /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit/install.log --single-version-externally-managed install_data
+[1.765s] running egg_info
+[1.766s] writing ../../build/processor_unit/processor_unit.egg-info/PKG-INFO
+[1.766s] writing dependency_links to ../../build/processor_unit/processor_unit.egg-info/dependency_links.txt
+[1.766s] writing entry points to ../../build/processor_unit/processor_unit.egg-info/entry_points.txt
+[1.766s] writing requirements to ../../build/processor_unit/processor_unit.egg-info/requires.txt
+[1.766s] writing top-level names to ../../build/processor_unit/processor_unit.egg-info/top_level.txt
+[1.768s] reading manifest file '../../build/processor_unit/processor_unit.egg-info/SOURCES.txt'
+[1.768s] adding license file 'LICENSE'
+[1.769s] writing manifest file '../../build/processor_unit/processor_unit.egg-info/SOURCES.txt'
+[1.769s] running build
+[1.769s] running build_py
+[1.769s] copying processor_unit/steam_opencv.py -> /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit/build/lib/processor_unit
+[1.770s] running install
+[1.770s] running install_lib
+[1.771s] copying /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit/build/lib/processor_unit/steam_opencv.py -> /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/python3.10/site-packages/processor_unit
+[1.771s] byte-compiling /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/python3.10/site-packages/processor_unit/steam_opencv.py to steam_opencv.cpython-310.pyc
+[1.774s] running install_data
+[1.774s] running install_egg_info
+[1.776s] removing '/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/python3.10/site-packages/processor_unit-0.0.0-py3.10.egg-info' (and everything under it)
+[1.776s] Copying ../../build/processor_unit/processor_unit.egg-info to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/python3.10/site-packages/processor_unit-0.0.0-py3.10.egg-info
+[1.777s] running install_scripts
+[1.797s] Installing camera_front script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/processor_unit
+[1.797s] Installing esp32_bridge_node script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/processor_unit
+[1.797s] Installing main_processor script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/processor_unit
+[1.797s] Installing steam_cam script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/processor_unit
+[1.797s] Installing uart_command_and_status_to_pi5 script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/processor_unit
+[1.797s] Installing uart_zero_two_w script to /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/processor_unit
+[1.798s] writing list of installed files to '/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit/install.log'
+[1.827s] Invoked command in '/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/src/processor_unit' returned '0': PYTHONPATH=/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/install/processor_unit/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/processor_unit build --build-base /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit/build install --record /home/erthirarat/Desktop/Senior_Project-WhitePost-Main_Arm/build/processor_unit/install.log --single-version-externally-managed install_data

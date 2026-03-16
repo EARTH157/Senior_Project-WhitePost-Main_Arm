@@ -49,6 +49,13 @@ def generate_launch_description():
             name='camera_front_node',
             output='screen'
         ),
+        
+        Node(
+            package='processor_unit',
+            executable='camera_back', # 👈 ใส่ชื่อ executable ที่ตั้งไว้ใน setup.py
+            name='camera_back_node',
+            output='screen'
+        ),
 
         # 4. หน้าต่างสไลเดอร์ GUI (โหมด "เต้นตาม" สมองกล)
         Node(

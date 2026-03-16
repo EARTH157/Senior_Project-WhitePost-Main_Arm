@@ -96,6 +96,9 @@ class Main_Processor(Node):
         self.button_is_lit = False
         self.sub_button_light = self.create_subscription(Bool, '/button_light_status', self.cb_button_light, 10)
         
+        self.floor_level_changed = False
+        self.sub_level_sensor = self.create_subscription(String, '/floor_level_status', self.cb_level_sensor, 10)
+        
         # --- ตัวแปรสำหรับภารกิจกดปุ่มอัตโนมัติ ---
         self.press_sequence_state = 'IDLE' 
         self.state_start_time = 0.0
@@ -128,6 +131,8 @@ class Main_Processor(Node):
         # --- Subscribers ---
         self.subscription = self.create_subscription(Point, '/target_position', self.listener_callback, 10)
         
+        self.pub_active_cam = self.create_publisher(String, '/active_camera', 10)
+        
         self.sub_cal1 = self.create_subscription(Bool, '/joint1/calibrated', self.cb_cal1, 10)
         self.sub_cal2 = self.create_subscription(Bool, '/joint2/calibrated', self.cb_cal2, 10)
         self.sub_cal3 = self.create_subscription(Bool, '/joint3/calibrated', self.cb_cal3, 10)
@@ -157,6 +162,14 @@ class Main_Processor(Node):
         
     def cb_button_light(self, msg):
         self.button_is_lit = msg.data
+        
+    def cb_level_sensor(self, msg):
+        # อ่านข้อความที่ส่งมา (แปลงเป็นตัวพิมพ์เล็กเพื่อเทียบง่ายๆ)
+        data = msg.data.strip().lower()
+        
+        # ⚠️ คุณสามารถเปลี่ยนคำว่า "changed" หรือ "1" ให้ตรงกับข้อความที่เซ็นเซอร์คุณส่งมาจริงๆ ได้เลยครับ
+        if "change" in data or "ต่างระดับ" in data or data == "1":
+            self.floor_level_changed = True
 
     def force_go_home_before_exit(self):
         self.get_logger().info("🛑 Ctrl+C Detected! กำลังสั่งกลับท่า Home ก่อนปิดระบบ...")
@@ -187,6 +200,7 @@ class Main_Processor(Node):
 
     def execute_go_start(self):
         self.get_logger().info("▶️ [COMMAND] GO START: ไปท่าเตรียมพร้อม...")
+        self.pub_active_cam.publish(String(data="front")) # 🟢 สั่งเปิดกล้องหน้า
         self.is_tracking_mode = False 
         target_start_joints = [90.0, 90.0, 8.0, 180.0, 90.0]
         target_xyz = self.calculate_forward_kinematics(target_start_joints[0], target_start_joints[1], target_start_joints[2])
@@ -205,6 +219,7 @@ class Main_Processor(Node):
 
     def execute_preset(self):
         self.get_logger().info(f"🎯 [COMMAND] PRESET: กางแขนไปพิกัดเตรียมเล็งกล้อง...")
+        self.pub_active_cam.publish(String(data="front")) # 🟢 สั่งเปิดกล้องหน้า
         self.is_tracking_mode = False
         
         # คำนวณองศาข้อต่อปลายทาง
@@ -236,6 +251,7 @@ class Main_Processor(Node):
         
     def execute_go_start_back(self):
         self.get_logger().info("▶️ [COMMAND] GO START BACK: ไปท่าเตรียมพร้อม (ด้านหลัง)...")
+        self.pub_active_cam.publish(String(data="back")) # 🟢 สั่งเปิดกล้องหลัง
         self.is_tracking_mode = False 
         
         # 🟢 หมุน Joint 1 ไปที่ 270 องศา (หันไปทางด้านหลัง)
@@ -256,6 +272,7 @@ class Main_Processor(Node):
 
     def execute_preset_back(self):
         self.get_logger().info(f"🎯 [COMMAND] PRESET BACK: กางแขนไปพิกัดเตรียมเล็งกล้อง (ด้านหลัง)...")
+        self.pub_active_cam.publish(String(data="back")) # 🟢 สั่งเปิดกล้องหลัง
         self.is_tracking_mode = False
         
         try:
@@ -313,6 +330,7 @@ class Main_Processor(Node):
         
     def execute_go_home(self):
         self.get_logger().info("🏠 [COMMAND] GO HOME: เก็บแขนกลับท่า Home...")
+        self.pub_active_cam.publish(String(data="none")) # 🟢 สั่งปิดทุกกล้องตอนพัก ประหยัดแบต!
         self.is_tracking_mode = False 
         home_joints = [90.0, 180.0, 8.0, 90.0, 90.0] 
         if self.current_joints is None:
@@ -504,8 +522,10 @@ class Main_Processor(Node):
     def process_button_press_sequence(self):
         # 1. จังหวะกำลังยื่นแขนไปกด
         if self.press_sequence_state == 'PRESSING':
+            self.floor_level_changed = False 
+            
             if self.force_detected:
-                self.get_logger().info("🚨 Force Active! ชนแล้ว เริ่มเช็คประตูลิฟต์และกำลังถอยกลับ...")
+                self.get_logger().info("🚨 Force Active! ชนแล้ว เริ่มเช็คสถานะและกำลังถอยกลับ...")
                 self.is_moving = False 
                 
                 temp_speed = self.speed_mm_s
@@ -528,15 +548,26 @@ class Main_Processor(Node):
                 
         # 2. รอถอยกลับ
         elif self.press_sequence_state == 'WAIT_FOR_RETRACT':
-            # 🟢 เช็คว่าหุ่นอยู่ด้านหน้าหรือไม่ (Y >= 0)
             is_front = self.pre_press_pos[1] >= 0
             
-            # 🟢 ลอจิก OR: ประตูเปิด หรือ (อยู่ด้านหน้า และ ไฟปุ่มติด)
-            if self.elevator_door_open or (is_front and self.button_is_lit):
-                self.get_logger().info("✅ ประตูเปิด หรือ ไฟปุ่มติดแล้ว! สั่งแขนกลับท่า Home ทันที")
+            if self.elevator_door_open or self.button_is_lit or (not is_front and self.floor_level_changed):
+                if self.elevator_door_open:
+                    self.get_logger().info("🚪 ภารกิจสำเร็จ: ประตูลิฟต์เปิดแล้ว!")
+                elif self.button_is_lit:
+                    self.get_logger().info("💡 ภารกิจสำเร็จ: ไฟปุ่มลิฟต์สว่างแล้ว!")
+                elif not is_front and self.floor_level_changed:
+                    self.get_logger().info("⬆️ ภารกิจสำเร็จ: ลิฟต์กำลังเคลื่อนที่ (ต่างระดับ)!")
+                
                 self.press_retry_count = 0
-                self.press_sequence_state = 'IDLE'
-                self.execute_go_home()
+                self.floor_level_changed = False 
+                
+                if is_front:
+                    self.press_sequence_state = 'IDLE'
+                    self.execute_go_home()
+                else:
+                    self.get_logger().info("↩️ อยู่ด้านหลัง: กำลังไป Start Back -> Start -> Home...")
+                    self.press_sequence_state = 'WAIT_START_BACK_THEN_START' # 🟢 เปลี่ยนสเตท
+                    self.execute_go_start_back() 
                 return
 
             if not self.is_moving:
@@ -547,12 +578,24 @@ class Main_Processor(Node):
         elif self.press_sequence_state == 'CHECK_DOOR':
             is_front = self.pre_press_pos[1] >= 0
             
-            # 🟢 ลอจิก OR: ใช้แบบเดียวกันตอนที่จอดเฝ้าดู
-            if self.elevator_door_open or (is_front and self.button_is_lit):
-                self.get_logger().info("✅ ประตูเปิด หรือ ไฟปุ่มติดแล้ว! สั่งแขนกลับท่า Home ทันที")
+            if self.elevator_door_open or self.button_is_lit or (not is_front and self.floor_level_changed):
+                if self.elevator_door_open:
+                    self.get_logger().info("🚪 ภารกิจสำเร็จ: ประตูลิฟต์เปิดแล้ว!")
+                elif self.button_is_lit:
+                    self.get_logger().info("💡 ภารกิจสำเร็จ: ไฟปุ่มลิฟต์สว่างแล้ว!")
+                elif not is_front and self.floor_level_changed:
+                    self.get_logger().info("⬆️ ภารกิจสำเร็จ: ลิฟต์กำลังเคลื่อนที่ (ต่างระดับ)!")
+                
                 self.press_retry_count = 0
-                self.press_sequence_state = 'IDLE'
-                self.execute_go_home()
+                self.floor_level_changed = False 
+                
+                if is_front:
+                    self.press_sequence_state = 'IDLE'
+                    self.execute_go_home()
+                else:
+                    self.get_logger().info("↩️ อยู่ด้านหลัง: กำลังไป Start Back -> Start -> Home...")
+                    self.press_sequence_state = 'WAIT_START_BACK_THEN_START' # 🟢 เปลี่ยนสเตท
+                    self.execute_go_start_back()
                 return
                 
             elapsed = time.time() - self.check_door_start_time
@@ -560,35 +603,42 @@ class Main_Processor(Node):
             if elapsed >= 1.5: 
                 self.press_retry_count += 1
                 if self.press_retry_count < 5:
-                    self.get_logger().warn(f"⚠️ ประตูยังไม่เปิด! เตรียม Track ใหม่อีกครั้ง (รอบที่ {self.press_retry_count + 1}/5)")
-                    
-                    # 🟢 เปลี่ยน State มารอเวลาเล็กน้อยก่อน Track
+                    self.get_logger().warn(f"⚠️ สถานะยังไม่เปลี่ยน! เตรียม Track ใหม่อีกครั้ง (รอบที่ {self.press_retry_count + 1}/5)")
                     self.press_sequence_state = 'WAIT_BEFORE_RETRACK'
-                    self.retrack_start_time = time.time() # เริ่มจับเวลาพัก
+                    self.retrack_start_time = time.time() 
                 else:
-                    self.get_logger().error("❌ กดครบ 5 ครั้งแล้วประตูยังไม่เปิด! ยกเลิกภารกิจกลับท่าพัก...")
+                    self.get_logger().error("❌ กดครบ 5 ครั้งแล้ว! ยกเลิกภารกิจกลับท่าพัก...")
                     self.press_retry_count = 0
                     self.press_sequence_state = 'IDLE'
                     
-                    # 🟢 ตรวจสอบว่าอยู่ด้านหน้า (Y >= 0) หรือด้านหลัง (Y < 0)
                     if self.pre_press_pos[1] >= 0:
-                        self.get_logger().info("กลับไปรอที่ท่า Start (ด้านหน้า)")
                         self.execute_go_start()
                     else:
-                        self.get_logger().info("กลับไปรอที่ท่า Start Back (ด้านหลัง)")
                         self.execute_go_start_back()
 
-        # 4. 🟢 [ใหม่] รอเวลาสักเล็กน้อย แล้วเปิดโหมด Track อีกรอบ
+        # 4. รอเวลาสักเล็กน้อย แล้วเปิดโหมด Track อีกรอบ
         elif self.press_sequence_state == 'WAIT_BEFORE_RETRACK':
             elapsed = time.time() - self.retrack_start_time
-            
-            # ตั้งเวลาหน่วงก่อน Track ใหม่ที่นี่ (เช่น 1.5 วินาที)
             if elapsed >= 1.5: 
                 self.get_logger().info("🔍 เล็งหาปุ่มลิฟต์เพื่อ Track ใหม่...")
-                self.press_sequence_state = 'IDLE'      # เคลียร์สถานะกดปุ่ม
-                self.is_tracking_mode = True            # เปิดโหมดรับค่ากล้อง
-                self.lock_start_time = 0.0              # รีเซ็ตตัวนับเวลาก่อนกด
-                self.pub_tracking_ready.publish(Bool(data=True)) # บอกกล้องให้ส่งภาพมาได้เลย
+                self.press_sequence_state = 'IDLE'      
+                self.is_tracking_mode = True            
+                self.lock_start_time = 0.0              
+                self.pub_tracking_ready.publish(Bool(data=True)) 
+
+        # 5. 🟢 [ใหม่] รอให้กลับถึง Start Back เสร็จ แล้วสั่งหมุนมาท่า Start (หน้า)
+        elif self.press_sequence_state == 'WAIT_START_BACK_THEN_START':
+            if not self.is_moving:
+                self.get_logger().info("✅ ถอยเข้า Start Back แล้ว! กำลังหมุนตัวกลับมาด้านหน้า (Start)...")
+                self.press_sequence_state = 'WAIT_START_THEN_HOME' 
+                self.execute_go_start()
+
+        # 6. 🟢 [ใหม่] รอให้หมุนถึงท่า Start (หน้า) เสร็จ แล้วสั่งพับเข้า Home
+        elif self.press_sequence_state == 'WAIT_START_THEN_HOME':
+            if not self.is_moving:
+                self.get_logger().info("✅ หมุนกลับมาด้านหน้าแล้ว! สั่งแขนพับเก็บเข้าท่า Home...")
+                self.press_sequence_state = 'IDLE' # จบภารกิจ
+                self.execute_go_home()
     
     def calibration_routine(self):
         if self.system_ready: return

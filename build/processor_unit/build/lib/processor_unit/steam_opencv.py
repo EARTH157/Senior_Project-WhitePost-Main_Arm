@@ -243,7 +243,7 @@ class SocketTrackerNode(Node):
                             if roi.size > 0:
                                 hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
                                 
-                                lower_red1, upper_red1 = np.array([0, 5, 150]), np.array([50, 20, 255])
+                                lower_red1, upper_red1 = np.array([0, 0, 0]), np.array([50, 50, 255])
                                 #lower_red2, upper_red2 = np.array([160, 100, 100]), np.array([180, 255, 255])
                                 mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
                                 #mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
@@ -255,8 +255,8 @@ class SocketTrackerNode(Node):
                                 red_pixels = cv2.countNonZero(red_mask)
                                 box_area = roi.shape[0] * roi.shape[1]
                                 
-                                # 🟢 ปรับ Threshold ลงมาเหลือแค่ 5% (0.05) เพราะเส้นไฟในปุ่มมันบางมากครับ
-                                if box_area > 0 and (red_pixels / box_area) > 0.05:
+                                # 🟢 ปรับ Threshold ลงมาเหลือแค่ 15% (0.15) เพราะเส้นไฟในปุ่มมันบางมากครับ
+                                if box_area > 0 and (red_pixels / box_area) > 0.7:
                                     button_is_lit = True
                                     self.draw_text_bg(display_frame, "LIT!", (int(x1), int(y1)-25), 0.6, (0, 0, 255))
                                     cv2.rectangle(display_frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 3)
