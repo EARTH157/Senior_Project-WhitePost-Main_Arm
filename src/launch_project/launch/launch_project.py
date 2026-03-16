@@ -23,12 +23,6 @@ def generate_launch_description():
             name='joint3_node',
             output='screen'
         ),
-        Node(
-            package='motor_control',
-            executable='servodrive',
-            name='servodrive',
-            output='screen'
-        ),
 
         # --- กลุ่มที่ 2: สมองกลและเซ็นเซอร์ (Processor Unit) ---
         Node(
