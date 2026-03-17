@@ -1,6 +1,7 @@
 /home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages/processor_unit/camera_front.py
 /home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages/processor_unit/uart_command_and_status_to_pi5.py
 /home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages/processor_unit/main_processor.py
+/home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages/processor_unit/test.py
 /home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages/processor_unit/__init__.py
 /home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages/processor_unit/camera_back.py
 /home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages/processor_unit/esp32_bridge_node.py
@@ -9,6 +10,7 @@
 /home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages/processor_unit/__pycache__/camera_front.cpython-311.pyc
 /home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages/processor_unit/__pycache__/uart_command_and_status_to_pi5.cpython-311.pyc
 /home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages/processor_unit/__pycache__/main_processor.cpython-311.pyc
+/home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages/processor_unit/__pycache__/test.cpython-311.pyc
 /home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages/processor_unit/__pycache__/__init__.cpython-311.pyc
 /home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages/processor_unit/__pycache__/camera_back.cpython-311.pyc
 /home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages/processor_unit/__pycache__/esp32_bridge_node.cpython-311.pyc
@@ -31,5 +33,6 @@
 /home/raspi-earth/project_ws/install/processor_unit/lib/processor_unit/esp32_bridge_node
 /home/raspi-earth/project_ws/install/processor_unit/lib/processor_unit/main_processor
 /home/raspi-earth/project_ws/install/processor_unit/lib/processor_unit/steam_cam
+/home/raspi-earth/project_ws/install/processor_unit/lib/processor_unit/test
 /home/raspi-earth/project_ws/install/processor_unit/lib/processor_unit/uart_command_and_status_to_pi5
 /home/raspi-earth/project_ws/install/processor_unit/lib/processor_unit/uart_zero_two_w

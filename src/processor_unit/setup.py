@@ -38,7 +38,8 @@ setup(
             'uart_command_and_status_to_pi5 = processor_unit.uart_command_and_status_to_pi5:main',
             'esp32_bridge_node = processor_unit.esp32_bridge_node:main',
             'camera_front = processor_unit.camera_front:main',
-            'camera_back = processor_unit.camera_back:main'
+            'camera_back = processor_unit.camera_back:main',
+            'test = processor_unit.test:main',
         ],
     },
 )

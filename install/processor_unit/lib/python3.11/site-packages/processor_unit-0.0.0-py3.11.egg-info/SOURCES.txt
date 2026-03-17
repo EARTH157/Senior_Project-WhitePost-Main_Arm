@@ -17,6 +17,7 @@ processor_unit/elevator_door.pt
 processor_unit/esp32_bridge_node.py
 processor_unit/main_processor.py
 processor_unit/steam_opencv.py
+processor_unit/test.py
 processor_unit/uart_command_and_status_to_pi5.py
 processor_unit/uart_zero_two_w.py
 resource/processor_unit

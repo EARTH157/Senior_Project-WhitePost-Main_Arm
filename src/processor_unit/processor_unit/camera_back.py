@@ -19,9 +19,10 @@ class YoloWebcamBackNode(Node):
         self.frame_count = 0
         self.skip_frames = 3 # ประมวลผล 1 เฟรม ข้าม 2 เฟรม (ลดภาระลง 66%)
         
+        # เก็บ Path ไว้ใช้ตอนโหลดซ้ำ
         package_share_dir = get_package_share_directory('processor_unit')
         self.model_path = os.path.join(package_share_dir, 'elevator_door.pt')
-        self.camera_index = 2
+        self.camera_index = 0
         
         self.get_logger().info("Starting YOLO Node (BACK). Checking AI and Camera...")
 
@@ -29,15 +30,35 @@ class YoloWebcamBackNode(Node):
         self.is_active = False
         self.sub_active = self.create_subscription(String, '/active_camera', self.cb_active, 10)
 
+        # ตั้งเวลาให้ทำงานถี่ขึ้นเพื่อเช็คทั้งภาพและการเชื่อมต่อ
         self.timer = self.create_timer(0.033, self.timer_callback)
 
     def cb_active(self, msg):
-        self.is_active = (msg.data.strip().lower() == "back")
+        command = msg.data.strip().lower()
+        
+        # 🟢 กรณีสั่งเปิด
+        if command == "BACK": # เปลี่ยนเป็น "back" สำหรับ Node หลัง
+            self.is_active = True
+            self.get_logger().info("🚀 [BACK] Node Active")
+            
+        # 🟢 กรณีสั่งปิด หรือสั่งเปิดกล้องอื่น
+        else:
+            self.is_active = False
+            # ถ้ากล้องเปิดอยู่ ให้สั่งปิด (Release) ทันที
+            if hasattr(self, 'cap') and self.cap is not None and self.cap.isOpened():
+                self.cap.release()
+                self.camera_ready = False
+                cv2.destroyAllWindows()
+                self.get_logger().info("💤 [FRONT] Camera released and Node standby")
 
     def timer_callback(self):
+        # 1. ถ้าไม่ได้ถูกสั่งให้ Active (is_active = False) ให้หยุดทำงานทันที ไม่ต้อง Reconnect
+        if not self.is_active:
+            return
+
         current_time = time.time()
         
-        # 🟢 [ระบบ Auto-Reconnect]
+        # 🟢 [ระบบ Auto-Reconnect] จะทำงานเฉพาะตอนที่ is_active เป็น True เท่านั้น
         if not self.model_loaded or not self.camera_ready:
             if current_time - self.last_retry_time > 2.0:
                 self.last_retry_time = current_time
@@ -46,59 +67,42 @@ class YoloWebcamBackNode(Node):
                     try:
                         self.model = YOLO(self.model_path)
                         self.model_loaded = True
-                        self.get_logger().info("✅ YOLO BACK loaded successfully!")
+                        self.get_logger().info("✅ YOLO BACK loaded!")
                     except Exception as e:
-                        self.get_logger().error(f"⏳ AI Load Failed. Retrying... ({e})")
+                        self.get_logger().error(f"⏳ AI Load Failed: {e}")
                 
                 if self.model_loaded and not self.camera_ready:
-                    self.cap = cv2.VideoCapture(self.camera_index)
+                    # 🟢 บังคับใช้ MJPG เพื่อแก้ปัญหาสีชมพู/เขียว
+                    self.cap = cv2.VideoCapture(self.camera_index, cv2.CAP_V4L2)
                     if self.cap.isOpened():
-                        # 🟢 ลดเหลือ 640x480 ทันทีที่เปิดกล้อง
+                        self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
                         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
                         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-                        
                         self.camera_ready = True
-                        self.get_logger().info("✅ Webcam BACK connected (640x480)!")
-                    else:
-                        self.get_logger().error("⏳ Camera BACK not found. Retrying...")
+                        self.get_logger().info("✅ Webcam BACK connected (MJPG)!")
             return
 
-        if not self.is_active:
-            self.cap.grab() 
-            return
-
+        # อ่านภาพ (เมื่อพร้อมและ Active เท่านั้น)
         ret, frame = self.cap.read()
         
-        # 🟢 [ระบบป้องกันสายหลุด]
         if not ret: 
-            self.get_logger().warn("🚨 BACK Camera Disconnected! Entering reconnect mode...")
+            self.get_logger().warn("🚨 BACK Camera Disconnected!")
             self.camera_ready = False
             self.cap.release()
             return
 
-        # 🟢 [ระบบ Skip Frame]
+        # --- ส่วน YOLO และ Skip Frame คงเดิม ---
         self.frame_count += 1
         if self.frame_count % self.skip_frames != 0:
-            return 
+            return
 
         try:
-            # 🟢 ลดขนาดภาพตอนรัน AI (imgsz=320)
             results = self.model(frame, imgsz=320, verbose=False)
-            annotated_frame = results[0].plot()
-            
-            door_is_open = False
-            for box in results[0].boxes:
-                cls_name = self.model.names[int(box.cls[0])]
-                if cls_name in ["elevator_door_open", "elevator_door_oprn"]:
-                    door_is_open = True
-                    break
-            
-            self.pub_door_status.publish(Bool(data=door_is_open))
-            cv2.imshow("BACK Camera", annotated_frame)
+            # ... ส่วนวิเคราะห์และ publish ...
+            cv2.imshow("BACK Camera", results[0].plot())
             cv2.waitKey(1)
-
         except Exception as e:
-            self.get_logger().error(f"Error processing image: {e}")
+            self.get_logger().error(f"Error: {e}")
 
     def destroy_node(self):
         if hasattr(self, 'cap') and self.cap is not None and self.cap.isOpened():

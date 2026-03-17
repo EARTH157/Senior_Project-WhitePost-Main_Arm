@@ -69,6 +69,8 @@ class Joint2Driver(Node):
         # (เพิ่มตรงที่เคยเป็น Setup I2C)
         self.latest_raw_sensor_val = None
         self.last_sensor_rx_time = time.time() # 🟢 เพิ่มบรรทัดนี้: ตัวจับเวลา Watchdog
+        self.sensor_timeout = False
+        self.last_known_good_raw = None
         # สมมติเป็น joint1_node ก็ subscribe '/sensor/as5600/joint1' (แก้ชื่อเลขให้ตรงตามไฟล์)
         self.create_subscription(Float32, '/sensor/as5600/joint2', self.raw_sensor_callback, 10)
 
@@ -98,8 +100,27 @@ class Joint2Driver(Node):
             self.get_logger().info("⏳ Waiting for calibration command... (Topic: /joint1/calibrate)")
 
     def raw_sensor_callback(self, msg: Float32):
-        self.latest_raw_sensor_val = msg.data
-        self.last_sensor_rx_time = time.time() # 🟢 เพิ่มบรรทัดนี้: รีเซ็ตเวลาเมื่อเซ็นเซอร์ปกติ
+        self.last_sensor_rx_time = time.time() # รีเซ็ตเวลาเมื่อเซ็นเซอร์ปกติ
+        new_val = msg.data
+
+        # 🟢 ลอจิก Auto-Resume เมื่อสายเพิ่งกลับมาเชื่อมต่อได้
+        if self.sensor_timeout:
+            if self.last_known_good_raw is not None:
+                diff = abs(new_val - self.last_known_good_raw)
+                if diff > 180: diff = 360 - diff # ป้องกันปัญหามุมหมุนครบรอบ
+                
+                if diff <= WARN_DIFF_THRESHOLD:
+                    self.get_logger().info(f"✅ Sensor reconnected! Position unchanged (Diff {diff:.2f}°). Auto-Resuming...")
+                    self.sensor_timeout = False # ยกเลิกสถานะ Timeout กลับไปทำงานปกติ
+                else:
+                    self.get_logger().warn(f"⚠️ Sensor reconnected, but arm MOVED ({diff:.2f}°)! Forcing recalibration.")
+                    self.is_homed = False       # บังคับ Calibrate ใหม่
+                    self.sensor_timeout = False
+        else:
+            # เก็บค่าล่าสุดไว้เผื่อสายหลุด
+            self.last_known_good_raw = new_val
+            
+        self.latest_raw_sensor_val = new_val
 
     # ---------------------------------------------------------
     # 💾 STATE CHECKING
@@ -251,7 +272,7 @@ class Joint2Driver(Node):
                 self.is_homed = False # ยกเลิกสถานะเพื่อไม่รับคำสั่งขยับต่อ
                 continue
 
-            if not self.is_homed or self.current_target is None:
+            if not self.is_homed or self.current_target is None or self.sensor_timeout:
                 self.target_hz = 0.0
                 self.current_hz = 0.0
                 continue

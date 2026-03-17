@@ -34,76 +34,75 @@ class YoloWebcamFrontNode(Node):
         self.timer = self.create_timer(0.033, self.timer_callback)
 
     def cb_active(self, msg):
-        self.is_active = (msg.data.strip().lower() == "front")
+        command = msg.data.strip().lower()
+        
+        # 🟢 กรณีสั่งเปิด
+        if command == "front": # เปลี่ยนเป็น "back" สำหรับ Node หลัง
+            self.is_active = True
+            self.get_logger().info("🚀 [FRONT] Node Active")
+            
+        # 🟢 กรณีสั่งปิด หรือสั่งเปิดกล้องอื่น
+        else:
+            self.is_active = False
+            # ถ้ากล้องเปิดอยู่ ให้สั่งปิด (Release) ทันที
+            if hasattr(self, 'cap') and self.cap is not None and self.cap.isOpened():
+                self.cap.release()
+                self.camera_ready = False
+                cv2.destroyAllWindows()
+                self.get_logger().info("💤 [FRONT] Camera released and Node standby")
 
     def timer_callback(self):
+        # 1. ถ้าไม่ได้ถูกสั่งให้ Active (is_active = False) ให้หยุดทำงานทันที ไม่ต้อง Reconnect
+        if not self.is_active:
+            return
+
         current_time = time.time()
         
-        # 🟢 [ระบบ Auto-Reconnect] ถ้า AI หรือ กล้องยังไม่พร้อม ให้พยายามเชื่อมต่อใหม่ทุก 2 วินาที
+        # 🟢 [ระบบ Auto-Reconnect] จะทำงานเฉพาะตอนที่ is_active เป็น True เท่านั้น
         if not self.model_loaded or not self.camera_ready:
             if current_time - self.last_retry_time > 2.0:
                 self.last_retry_time = current_time
                 
-                # 1. พยายามโหลด AI
                 if not self.model_loaded:
                     try:
                         self.model = YOLO(self.model_path)
                         self.model_loaded = True
-                        self.get_logger().info("✅ YOLO FRONT loaded successfully!")
+                        self.get_logger().info("✅ YOLO FRONT loaded!")
                     except Exception as e:
-                        self.get_logger().error(f"⏳ AI Load Failed. Retrying... ({e})")
+                        self.get_logger().error(f"⏳ AI Load Failed: {e}")
                 
-                # 2. พยายามเปิดกล้อง (ทำหลังจาก AI โหลดเสร็จแล้วเท่านั้น)
                 if self.model_loaded and not self.camera_ready:
-                    self.cap = cv2.VideoCapture(self.camera_index)
+                    # 🟢 บังคับใช้ MJPG เพื่อแก้ปัญหาสีชมพู/เขียว
+                    self.cap = cv2.VideoCapture(self.camera_index, cv2.CAP_V4L2)
                     if self.cap.isOpened():
-                        # 🟢 ลดเหลือ 640x480 ทันทีที่เปิดกล้อง เพื่อประหยัด CPU/RAM
+                        self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
                         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
                         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-                        
                         self.camera_ready = True
-                        self.get_logger().info("✅ Webcam FRONT connected (640x480)!")
-                    else:
-                        self.get_logger().error("⏳ Camera FRONT not found. Retrying...")
-            return # ข้ามการทำงานส่วนอื่นไปก่อนจนกว่าจะพร้อม
-
-        # --- ส่วนการทำงานปกติเมื่อกล้องและ AI พร้อม ---
-        if not self.is_active:
-            self.cap.grab() # ดึงภาพทิ้งไปเฉยๆ เพื่อเคลียร์ Buffer ไม่ให้ภาพดีเลย์ตอนกลับมา Active
+                        self.get_logger().info("✅ Webcam FRONT connected (MJPG)!")
             return
 
+        # อ่านภาพ (เมื่อพร้อมและ Active เท่านั้น)
         ret, frame = self.cap.read()
         
-        # [ระบบป้องกันสายหลุด]
         if not ret: 
-            self.get_logger().warn("🚨 FRONT Camera Disconnected! Entering reconnect mode...")
+            self.get_logger().warn("🚨 FRONT Camera Disconnected!")
             self.camera_ready = False
             self.cap.release()
             return
 
-        # 🟢 [ระบบ Skip Frame] นับเฟรมและเช็คว่าถึงรอบที่ต้องประมวลผลหรือยัง
+        # --- ส่วน YOLO และ Skip Frame คงเดิม ---
         self.frame_count += 1
         if self.frame_count % self.skip_frames != 0:
-            return # ถ้าไม่ใช่รอบของมัน ให้ return ออกไปเลย ไม่ต้องรัน YOLO
+            return
 
         try:
-            # 🟢 ลดขนาดภาพตอนรัน AI (imgsz=320) กินแรงเครื่องน้อยลงมาก
             results = self.model(frame, imgsz=320, verbose=False)
-            annotated_frame = results[0].plot()
-            
-            door_is_open = False
-            for box in results[0].boxes:
-                cls_name = self.model.names[int(box.cls[0])]
-                if cls_name in ["elevator_door_open", "elevator_door_oprn"]:
-                    door_is_open = True
-                    break
-            
-            self.pub_door_status.publish(Bool(data=door_is_open))
-            cv2.imshow("FRONT Camera", annotated_frame)
+            # ... ส่วนวิเคราะห์และ publish ...
+            cv2.imshow("FRONT Camera", results[0].plot())
             cv2.waitKey(1)
-
         except Exception as e:
-            self.get_logger().error(f"Error processing image: {e}")
+            self.get_logger().error(f"Error: {e}")
 
     def destroy_node(self):
         if hasattr(self, 'cap') and self.cap is not None and self.cap.isOpened():

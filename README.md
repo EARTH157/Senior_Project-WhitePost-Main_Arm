@@ -196,6 +196,11 @@ ros2 topic pub --once /robot_command std_msgs/msg/String "{data: 'preset'}"
 ros2 topic pub --once /robot_command std_msgs/msg/String "{data: 'preset_back'}"
 ros2 topic pub --once /robot_command std_msgs/msg/String "{data: 'track'}"
 ros2 topic pub --once /robot_command std_msgs/msg/String "{data: 'home'}"
+ros2 topic pub /active_camera std_msgs/msg/String "{data: 'tracker'}" --once
+ros2 topic pub /active_camera std_msgs/msg/String "{data: 'off_tracker'}" --once
+ros2 topic pub /active_camera std_msgs/msg/String "{data: 'front'}" --once
+ros2 topic pub /active_camera std_msgs/msg/String "{data: 'back'}" --once
+ros2 topic pub /active_camera std_msgs/msg/String "{data: 'off'}" --once
 ```
 
 **Direct Position & Angle Control**
