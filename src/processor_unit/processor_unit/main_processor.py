@@ -82,13 +82,13 @@ class Main_Processor(Node):
         # 🔥 พิกัด PRESET เตรียมกดปุ่ม (แก้ระยะให้ตรงหน้าลิฟต์ได้เลย)
         self.preset_x = 300.0
         self.preset_y = 350.0  
-        self.preset_z = 250.0  
+        self.preset_z = 400.0  
         
         # 🟢 พิกัด PRESET เตรียมกดปุ่ม (ด้านหลัง Q3, Q4)
         # ตั้ง Y ติดลบเพื่อให้หันไปด้านหลัง (ลองปรับ X ตามที่ต้องการได้เลย)
         self.preset_back_x = -300.0 
         self.preset_back_y = -350.0  
-        self.preset_back_z = 250.0
+        self.preset_back_z = 400.0
         
         # 🔥 ศูนย์กลางรับคำสั่งทั้งหมด
         self.sub_command = self.create_subscription(String, '/robot_command', self.cb_robot_command, 10)

@@ -25,6 +25,12 @@ class ESP32BridgeNode(Node):
         self.MUX_CH_SERVO = 2     # ให้บอร์ด PCA9685 เสียบอยู่ที่ MUX ช่อง 2
         self.SERVO_PIN_J4 = 0     # Joint 4 (ข้อมือ) ต่อกับ Servo ขาที่ 0
         self.SERVO_PIN_J5 = 1     # Joint 5 (กลีบมือ) ต่อกับ Servo ขาที่ 1
+        
+        # =========================================================
+        # ⚙️ 3. ตั้งค่าการแสดงผลข้อความ (Debug Output)
+        # =========================================================
+        self.ENABLE_DEBUG = True  # เปลี่ยนเป็น False หากไม่ต้องการให้โชว์ข้อความใน Terminal
+        self.DEBUG_INTERVAL = 50  # จำนวนรอบที่จะให้ Print 1 ครั้ง (50 รอบ = ประมาณ 0.5 วินาที)
         # =========================================================
 
         try:
@@ -81,21 +87,26 @@ class ESP32BridgeNode(Node):
                 self.pub_raw_j3.publish(Float32(data=float(angles[self.MUX_CH_J3])))
 
                 # ---------------------------------------------------------
-                # 🐛 SECTION DEBUG: Print โชว์สถานะทุกๆ 50 รอบ (ประมาณ 0.5 วิ)
+                # 🐛 SECTION DEBUG: Print โชว์สถานะการทำงาน (ทำงานเมื่อ ENABLE_DEBUG = True)
                 # ---------------------------------------------------------
-                self.debug_counter += 1
-                if self.debug_counter >= 50:
-                    val_j1 = angles[self.MUX_CH_J1] if len(angles) > self.MUX_CH_J1 else 'N/A'
-                    val_j2 = angles[self.MUX_CH_J2] if len(angles) > self.MUX_CH_J2 else 'N/A'
-                    val_j3 = angles[self.MUX_CH_J3] if len(angles) > self.MUX_CH_J3 else 'N/A'
-                    
-                    self.get_logger().info(
-                        f"📥 [อ่านค่า] J1(Ch{self.MUX_CH_J1}): {val_j1} | "
-                        f"J2(Ch{self.MUX_CH_J2}): {val_j2} | "
-                        f"J3(Ch{self.MUX_CH_J3}): {val_j3} | "
-                        f"Mux Status: {devices}"
-                    )
-                    self.debug_counter = 0
+                if self.ENABLE_DEBUG:
+                    self.debug_counter += 1
+                    if self.debug_counter >= self.DEBUG_INTERVAL:
+                        val_j1 = angles[self.MUX_CH_J1] if len(angles) > self.MUX_CH_J1 else 'N/A'
+                        val_j2 = angles[self.MUX_CH_J2] if len(angles) > self.MUX_CH_J2 else 'N/A'
+                        val_j3 = angles[self.MUX_CH_J3] if len(angles) > self.MUX_CH_J3 else 'N/A'
+                        
+                        # สร้างข้อความสรุปสถานะการอ่านค่า
+                        msg = (
+                            f"\n--- [ESP32 Sensor Status] ---\n"
+                            f"📍 Joint 1 (Mux {self.MUX_CH_J1}): {val_j1} unit\n"
+                            f"📍 Joint 2 (Mux {self.MUX_CH_J2}): {val_j2} unit\n"
+                            f"📍 Joint 3 (Mux {self.MUX_CH_J3}): {val_j3} unit\n"
+                            f"🔍 Mux Devices: {devices}\n"
+                            f"-----------------------------"
+                        )
+                        self.get_logger().info(msg)
+                        self.debug_counter = 0
 
             except json.JSONDecodeError:
                 pass
@@ -107,7 +118,6 @@ class ESP32BridgeNode(Node):
         data = msg.data
         
         # รูปแบบจาก main_processor ส่งมาคือ [mux_เดิม, ch1_เดิม, angle_j4, ch2_เดิม, angle_j5]
-        # เราจะดึงแค่องศามาใช้ (Index 2 และ 4) แล้วให้มันวิ่งไปตามช่องที่เราตั้งค่าไว้ด้านบนแทน!
         if len(data) >= 5:
             angle_j4 = int(data[2])
             angle_j5 = int(data[4])
@@ -120,9 +130,12 @@ class ESP32BridgeNode(Node):
             self.ser.write(cmd_j5.encode('utf-8'))
             
             # ---------------------------------------------------------
-            # 🐛 SECTION DEBUG: Print ทันทีเมื่อมีการสั่งงาน Servo
+            # 🐛 SECTION DEBUG: Print ทันทีเมื่อมีการสั่งงาน Servo (ทำงานเมื่อ ENABLE_DEBUG = True)
             # ---------------------------------------------------------
-            self.get_logger().info(f"📤 [สั่ง Servo] -> J4(ข้อมือ): {cmd_j4.strip()} | J5(กลีบมือ): {cmd_j5.strip()}")
+            if self.ENABLE_DEBUG:
+                self.get_logger().info(
+                    f"📤 [CMD SERVO] สั่งงานไปที่ข้อมือ (J4): {angle_j4}° | กลีบมือ (J5): {angle_j5}°"
+                )
 
     def destroy_node(self):
         if hasattr(self, 'ser') and self.ser.is_open:
@@ -132,8 +145,10 @@ class ESP32BridgeNode(Node):
 def main(args=None):
     rclpy.init(args=args)
     node = ESP32BridgeNode()
-    try: rclpy.spin(node)
-    except KeyboardInterrupt: pass
+    try: 
+        rclpy.spin(node)
+    except KeyboardInterrupt: 
+        pass
     finally:
         node.destroy_node()
         rclpy.shutdown()
