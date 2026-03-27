@@ -79,7 +79,7 @@ class SocketTrackerNode(Node):
         self.frame_counter = 0
         self.SKIP_FRAMES = 2 if not self.simulation_mode else 0 
         self.TARGET_RADIUS = 80      
-        self.RADIUS_DEAD_ZONE = 20   
+        self.RADIUS_DEAD_ZONE = 40   
         self.waiting_for_robot = False
         self.last_msg_time = 0  
         self.robot_tracking_state = False 
@@ -113,15 +113,18 @@ class SocketTrackerNode(Node):
 
     def cb_active(self, msg):
         command = msg.data.strip().lower()
-        if command == "tracker":
+        
+        # 🟢 ให้ตื่นมารอทั้งคำสั่ง preset (front) และ preset_back (back)
+        if command in ["front", "back", "tracker"]:
             if not self.is_active:
                 self.is_active = True
-                self.get_logger().info("🚀 [TRACKER] Node Activated!")
-        elif command in ["off_tracker", "off", "front", "back"]:
+                self.get_logger().info("🚀 [TRACKER] อุ่นเครื่องรับ Socket แล้ว!")
+                
+        # 🔴 ถ้าเป็นคำสั่งอื่น (เช่น start, home) ให้ปิดตัวเองพักเครื่อง
+        elif command in ["none", "off"]:
             if self.is_active:
                 self.is_active = False
                 self.camera_ready = False
-                
                 # คืนทรัพยากร
                 if self.simulation_mode:
                     if hasattr(self, 'cap') and self.cap is not None and self.cap.isOpened():
@@ -134,8 +137,7 @@ class SocketTrackerNode(Node):
                         try: self.s.close()
                         except: pass
                     self.s = None 
-                
-                self.get_logger().info("💤 [TRACKER] Released resources and Standby.")
+                self.get_logger().info("💤 [TRACKER] พักการเชื่อมต่อ Socket")
         
     def cb_robot_ready(self, msg):
         if msg.data:
@@ -147,15 +149,20 @@ class SocketTrackerNode(Node):
         
     def cb_robot_command(self, msg):
         cmd = msg.data.strip().lower()
+        
         if cmd == "track":
-            self.robot_tracking_state = True
-            self.waiting_for_robot = False
-            self.last_r = 0 
-            self.get_logger().info("👀 [CAMERA] เปิดวาล์ว: เริ่มส่งพิกัดล็อกเป้า!")
-        elif cmd in ["start", "preset", "home"]:
+            # 🟢 เปิดวาล์วให้ส่งค่า Error เพื่อขยับหุ่น (ทำได้ก็ต่อเมื่อตื่นอยู่เท่านั้น)
+            if self.is_active:
+                self.robot_tracking_state = True
+                self.waiting_for_robot = False
+                self.last_r = 0 
+                self.get_logger().info("👀 [TRACKER] เปิดวาล์ว: เริ่มส่งพิกัดล็อกเป้า!")
+                
+        else:
+            # 🔴 คำสั่งขยับอื่นๆ ให้ปิดวาล์วส่งพิกัดไว้ก่อน
             self.robot_tracking_state = False
             self.last_r = 0 
-            self.get_logger().info(f"🛑 [CAMERA] ปิดวาล์วชั่วคราว: หุ่นกำลังเดินทางไปโหมด {cmd.upper()}")
+            self.get_logger().info(f"🛑 [TRACKER] ปิดวาล์วชั่วคราว รอหุ่นขยับ (Mode: {cmd.upper()})")
 
     def draw_text_bg(self, img, text, pos, font_scale=0.6, color=(255, 255, 255), thickness=2, bg_color=(0, 0, 0)):
         font = cv2.FONT_HERSHEY_SIMPLEX
@@ -323,7 +330,7 @@ class SocketTrackerNode(Node):
                     boxes = results[0].boxes
 
                     found_valid_target = False
-                    error_x, error_y, current_r = 0.0, 0.0, 0.0 
+                    error_x, error_y, error_r, current_r = 0.0, 0.0, 0.0, 0.0
                     
                     if len(boxes) > 0:
                         largest_box = None

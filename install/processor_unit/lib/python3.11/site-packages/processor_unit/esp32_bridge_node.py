@@ -35,6 +35,10 @@ class ESP32BridgeNode(Node):
 
         try:
             self.ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=0.01)
+            # --- เพิ่ม 2 บรรทัดนี้เพื่อป้องกัน ESP32 โดน Reset ค้าง ---
+            self.ser.setDTR(False)
+            self.ser.setRTS(False)
+            # ---------------------------------------------------
             self.get_logger().info(f"✅ เชื่อมต่อ ESP32 สำเร็จที่ {SERIAL_PORT}")
         except Exception as e:
             self.get_logger().fatal(f"🛑 Error: {e}")

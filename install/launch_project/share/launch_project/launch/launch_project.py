@@ -33,6 +33,12 @@ def generate_launch_description():
         ),
         Node(
             package='processor_unit',
+            executable='force_receiver_node',
+            name='force_receiver_node',
+            output='screen'
+        ),
+        Node(
+            package='processor_unit',
             executable='main_processor',
             name='main_processor',
             parameters=[{'simulation_mode': False}], # 🟢 บังคับใช้ฮาร์ดแวร์จริง

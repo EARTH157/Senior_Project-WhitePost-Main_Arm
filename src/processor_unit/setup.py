@@ -40,6 +40,7 @@ setup(
             'camera_front = processor_unit.camera_front:main',
             'camera_back = processor_unit.camera_back:main',
             'test = processor_unit.test:main',
+            'force_receiver_node = processor_unit.force_receiver_node:main',
         ],
     },
 )

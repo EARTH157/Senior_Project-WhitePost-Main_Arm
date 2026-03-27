@@ -36,17 +36,16 @@ class YoloWebcamFrontNode(Node):
     def cb_active(self, msg):
         command = msg.data.strip().lower()
         
-        # 🟢 กรณีสั่งเปิด
-        if command == "front": # เปลี่ยนเป็น "back" สำหรับ Node หลัง
-            self.is_active = True
-            self.get_logger().info("🚀 [FRONT] Node Active")
-            
-        # 🟢 กรณีสั่งปิด หรือสั่งเปิดกล้องอื่น
+        if command == "front":
+            if not self.is_active:
+                self.is_active = True
+                self.get_logger().info("🚀 [FRONT] Node Active")
+                
         else:
-            self.is_active = False
-            # ถ้ากล้องเปิดอยู่ ให้สั่งปิด (Release) ทันที
-            if hasattr(self, 'cap') and self.cap is not None and self.cap.isOpened():
-                self.cap.release()
+            if self.is_active:
+                self.is_active = False
+                if hasattr(self, 'cap') and self.cap is not None and self.cap.isOpened():
+                    self.cap.release()
                 self.camera_ready = False
                 cv2.destroyAllWindows()
                 self.get_logger().info("💤 [FRONT] Camera released and Node standby")

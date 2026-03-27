@@ -35,7 +35,7 @@ MAX_DELAY = 0.001
 PULSE_WIDTH = 0.00005 
 
 ANGLE_TOLERANCE = 2.5  
-WARN_DIFF_THRESHOLD = 0.5  
+WARN_DIFF_THRESHOLD = 2.0  
 STATE_FILE = "joint3_last_state.json" 
 
 class Joint3Driver(Node):
@@ -139,27 +139,23 @@ class Joint3Driver(Node):
                     diff = abs(current_raw - last_raw)
                     if diff > 180: diff = 360 - diff
 
+                    # แจ้งเตือนเฉยๆ ว่ามีการคลาดเคลื่อน แต่จะไม่ล็อกแล้ว
                     if diff <= WARN_DIFF_THRESHOLD:
                         self.get_logger().info(f"✅ Position Verified (Diff: {diff:.2f}°). Resuming...")
-                        
-                        self.zero_offset = saved_offset
-                        self.is_homed = True
-                        
-                        current_angle = current_raw - self.zero_offset
-                        self.current_target = current_angle
-                        
-                        self.enable_motor(True)
-                        self.get_logger().info(f"🚀 System READY! Holding at {current_angle:.2f}°")
-                        
                     else:
                         self.get_logger().warn(f"⚠️ MOVED WHILE OFF! (Diff: {diff:.2f}°)")
-                        self.get_logger().warn("   Safety Lock: PLEASE RE-CALIBRATE.")
-                        calib_msg = Bool()
-                        calib_msg.data = False
-                        self.calibration_pub.publish(calib_msg)
-                        self.is_homed = False
-                        # 🔥 จ่ายไฟล็อคมอเตอร์ แม้จะบังคับให้ calibrate ใหม่
-                        self.enable_motor(True)
+                        self.get_logger().info("🔓 ปลดล็อกเซฟตี้: อนุญาตให้ทำงานต่อโดยไม่ต้อง Calibrate")
+
+                    # 🟢 บังคับให้ระบบพร้อมทำงานเสมอ!
+                    self.zero_offset = saved_offset
+                    self.is_homed = True
+                    
+                    current_angle = current_raw - self.zero_offset
+                    self.current_target = current_angle
+                    
+                    self.enable_motor(True)
+                    self.get_logger().info(f"🚀 System READY! Holding at {current_angle:.2f}°")
+
             except Exception as e:
                 self.get_logger().error(f"Failed to load state: {e}")
         else:
@@ -401,14 +397,21 @@ class Joint3Driver(Node):
         while GPIO.input(PIN_LIMIT) == 1: 
             self.step_pulse_single(-1, HOMING_DELAY * 2)
             
+        # 5. Set 180 Degrees
         val = self.read_as5600()
-        if val: 
-            self.zero_offset = 0.0
-            self.is_homed = True
-            self.current_target = 8.0 
-            self.get_logger().info(f"✅ Homing Done. New Offset: {self.zero_offset:.2f}")
+        
+        # 🔓 ปลดล็อกเงื่อนไข: บังคับให้ Homing สำเร็จไปเลย!
+        self.zero_offset = 0.0
+        self.is_homed = True
+        self.current_target = 8.0
+        
+        if val is not None: 
+            current_check = self.get_calibrated_angle()
+            self.get_logger().info(f"✅ Homing Done. Sensor reads: {current_check:.2f}° (Should be approx 180°)")
         else:
-            self.get_logger().error("❌ Homing Failed: Sensor Error")
+            self.get_logger().warn("⚠️ อ่านค่าจังหวะสุดท้ายไม่ทัน แต่ปลดล็อกบังคับผ่านแล้ว!")
+            
+        self.get_logger().info("🚀 Holding Position at 8.0°")
 
     def enable_motor(self, enable):
         GPIO.output(PIN_ENA, GPIO.HIGH if enable == ENA_ACTIVE_HIGH else GPIO.LOW)

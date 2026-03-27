@@ -22,7 +22,7 @@ class YoloWebcamBackNode(Node):
         # เก็บ Path ไว้ใช้ตอนโหลดซ้ำ
         package_share_dir = get_package_share_directory('processor_unit')
         self.model_path = os.path.join(package_share_dir, 'elevator_door.pt')
-        self.camera_index = 0
+        self.camera_index = 1
         
         self.get_logger().info("Starting YOLO Node (BACK). Checking AI and Camera...")
 
@@ -36,20 +36,20 @@ class YoloWebcamBackNode(Node):
     def cb_active(self, msg):
         command = msg.data.strip().lower()
         
-        # 🟢 กรณีสั่งเปิด
-        if command == "BACK": # เปลี่ยนเป็น "back" สำหรับ Node หลัง
-            self.is_active = True
-            self.get_logger().info("🚀 [BACK] Node Active")
-            
-        # 🟢 กรณีสั่งปิด หรือสั่งเปิดกล้องอื่น
+        # แก้จาก "BACK" เป็น "back"
+        if command == "back": 
+            if not self.is_active:
+                self.is_active = True
+                self.get_logger().info("🚀 [BACK] Node Active")
+                
         else:
-            self.is_active = False
-            # ถ้ากล้องเปิดอยู่ ให้สั่งปิด (Release) ทันที
-            if hasattr(self, 'cap') and self.cap is not None and self.cap.isOpened():
-                self.cap.release()
+            if self.is_active:
+                self.is_active = False
+                if hasattr(self, 'cap') and self.cap is not None and self.cap.isOpened():
+                    self.cap.release()
                 self.camera_ready = False
                 cv2.destroyAllWindows()
-                self.get_logger().info("💤 [FRONT] Camera released and Node standby")
+                self.get_logger().info("💤 [BACK] Camera released and Node standby")
 
     def timer_callback(self):
         # 1. ถ้าไม่ได้ถูกสั่งให้ Active (is_active = False) ให้หยุดทำงานทันที ไม่ต้อง Reconnect

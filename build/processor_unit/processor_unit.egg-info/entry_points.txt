@@ -2,6 +2,7 @@
 camera_back = processor_unit.camera_back:main
 camera_front = processor_unit.camera_front:main
 esp32_bridge_node = processor_unit.esp32_bridge_node:main
+force_receiver_node = processor_unit.force_receiver_node:main
 main_processor = processor_unit.main_processor:main
 steam_cam = processor_unit.steam_opencv:main
 test = processor_unit.test:main
