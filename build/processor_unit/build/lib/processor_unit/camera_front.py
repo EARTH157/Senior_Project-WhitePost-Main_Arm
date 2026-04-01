@@ -22,7 +22,7 @@ class YoloWebcamFrontNode(Node):
         # เก็บ Path ไว้ใช้ตอนโหลดซ้ำ
         package_share_dir = get_package_share_directory('processor_unit')
         self.model_path = os.path.join(package_share_dir, 'elevator_door.pt')
-        self.camera_index = 0
+        self.camera_index = '/dev/v4l/by-path/platform-xhci-hcd.0-usb-0:1:1.0-video-index0'
         
         self.get_logger().info("Starting YOLO Node (FRONT). Checking AI and Camera...")
 
