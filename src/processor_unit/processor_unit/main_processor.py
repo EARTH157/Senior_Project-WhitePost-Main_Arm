@@ -379,7 +379,7 @@ class Main_Processor(Node):
                         self.force_detected = False
                         
                         temp_speed = self.speed_mm_s
-                        self.speed_mm_s = 50.0 
+                        self.speed_mm_s = 20.0 
                         
                         push_dir = 1.0 if self.current_pos[1] >= 0 else -1.0
                         self.move_to_offset(0.0, 150.0 * push_dir, 0.0) 

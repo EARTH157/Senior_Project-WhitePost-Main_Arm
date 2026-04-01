@@ -36,12 +36,14 @@ class YoloWebcamFrontNode(Node):
     def cb_active(self, msg):
         command = msg.data.strip().lower()
         
+        # 🟢 เปิดทำงานเมื่อได้รับคำสั่ง front
         if command == "front":
             if not self.is_active:
                 self.is_active = True
                 self.get_logger().info("🚀 [FRONT] Node Active")
                 
-        else:
+        # 🔴 ปิดกล้องเมื่อได้รับคำสั่ง none (เช่น ตอนกดติดแล้ว หรือกลับ Home) เท่านั้น
+        elif command in ["none", "off"]:
             if self.is_active:
                 self.is_active = False
                 if hasattr(self, 'cap') and self.cap is not None and self.cap.isOpened():
