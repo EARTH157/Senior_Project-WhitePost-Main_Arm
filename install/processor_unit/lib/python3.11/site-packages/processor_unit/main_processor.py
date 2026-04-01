@@ -543,6 +543,7 @@ class Main_Processor(Node):
             if not self.is_moving:
                 self.get_logger().info("✅ ถอยกลับถึงจุดปลอดภัยแล้ว! เฝ้าดูประตู/ไฟปุ่ม ต่อ...")
                 self.press_sequence_state = 'CHECK_DOOR'
+                self.check_door_start_time = time.time()
                 
         elif self.press_sequence_state == 'CHECK_DOOR':
             is_front = self.pre_press_pos[1] >= 0
@@ -569,7 +570,7 @@ class Main_Processor(Node):
                 
             elapsed = time.time() - self.check_door_start_time
             
-            if elapsed >= 1.5: 
+            if elapsed >= 5.0: 
                 self.press_retry_count += 1
                 if self.press_retry_count < 5:
                     self.get_logger().warn(f"⚠️ สถานะยังไม่เปลี่ยน! เตรียม Track ใหม่อีกครั้ง (รอบที่ {self.press_retry_count + 1}/5)")

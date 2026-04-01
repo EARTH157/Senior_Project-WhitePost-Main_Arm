@@ -99,9 +99,29 @@ class YoloWebcamBackNode(Node):
 
         try:
             results = self.model(frame, imgsz=320, verbose=False)
-            # ... ส่วนวิเคราะห์และ publish ...
-            cv2.imshow("BACK Camera", results[0].plot())
+            
+            # ?? [ส่วนที่เติมเข้าไป] วิเคราะห์ผลและ Publish
+            door_is_open = False
+            
+            # วนลูปดูทุกกล่องที่ YOLO ตรวจเจอในเฟรมนี้
+            for box in results[0].boxes:
+                cls_id = int(box.cls[0].item())           # ไอดีของคลาส
+                class_name = self.model.names[cls_id]     # ชื่อของคลาส
+                conf = float(box.conf[0].item())          # ความมั่นใจ (Confidence)
+                
+                # เช็คว่าชื่อคลาสตรงกับประตูเปิด และมีความมั่นใจมากกว่า 50%
+                # ?? หมายเหตุ: เปลี่ยนคำว่า "elevator_door_open" ให้ตรงกับชื่อคลาสที่คุณเทรนมาในโมเดล elevator_door.pt
+                if (class_name == "elevator_door_open" or class_name == "door_open") and conf > 0.5:
+                    door_is_open = True
+                    break  # เจอแค่ 1 กล่องก็ถือว่าประตูเปิดแล้ว หยุดลูปได้เลย
+
+            # ส่งค่าไปยัง Main Processor
+            self.pub_door_status.publish(Bool(data=door_is_open))
+
+            # ??? แสดงภาพผลลัพธ์
+            cv2.imshow("FRONT Camera", results[0].plot()) # ถ้าเป็นไฟล์ back อย่าลืมแก้ชื่อหน้าต่างเป็น "BACK Camera" นะครับ
             cv2.waitKey(1)
+            
         except Exception as e:
             self.get_logger().error(f"Error: {e}")
 

@@ -77,7 +77,7 @@ class SocketTrackerNode(Node):
         self.SMOOTH_FACTOR = 0.3
         self.target_label = "none"
         self.frame_counter = 0
-        self.SKIP_FRAMES = 2 if not self.simulation_mode else 0 
+        self.SKIP_FRAMES = 5 if not self.simulation_mode else 0 
         self.TARGET_RADIUS = 80      
         self.RADIUS_DEAD_ZONE = 40   
         self.waiting_for_robot = False
