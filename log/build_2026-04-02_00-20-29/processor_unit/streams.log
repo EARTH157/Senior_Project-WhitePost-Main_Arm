@@ -1,0 +1,39 @@
+[5.811s] Invoking command in '/home/raspi-earth/project_ws/src/processor_unit': PYTHONPATH=/home/raspi-earth/project_ws/build/processor_unit/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/processor_unit build --build-base /home/raspi-earth/project_ws/build/processor_unit/build install --record /home/raspi-earth/project_ws/build/processor_unit/install.log --single-version-externally-managed install_data
+[6.864s] running egg_info
+[6.907s] writing ../../build/processor_unit/processor_unit.egg-info/PKG-INFO
+[6.908s] writing dependency_links to ../../build/processor_unit/processor_unit.egg-info/dependency_links.txt
+[6.911s] writing entry points to ../../build/processor_unit/processor_unit.egg-info/entry_points.txt
+[6.912s] writing requirements to ../../build/processor_unit/processor_unit.egg-info/requires.txt
+[6.912s] writing top-level names to ../../build/processor_unit/processor_unit.egg-info/top_level.txt
+[7.002s] reading manifest file '../../build/processor_unit/processor_unit.egg-info/SOURCES.txt'
+[7.002s] adding license file 'LICENSE'
+[7.003s] writing manifest file '../../build/processor_unit/processor_unit.egg-info/SOURCES.txt'
+[7.003s] running build
+[7.004s] running build_py
+[7.004s] copying processor_unit/camera_front.py -> /home/raspi-earth/project_ws/build/processor_unit/build/lib/processor_unit
+[7.005s] copying processor_unit/main_processor.py -> /home/raspi-earth/project_ws/build/processor_unit/build/lib/processor_unit
+[7.005s] copying processor_unit/camera_back.py -> /home/raspi-earth/project_ws/build/processor_unit/build/lib/processor_unit
+[7.006s] running install
+[7.018s] running install_lib
+[7.066s] copying /home/raspi-earth/project_ws/build/processor_unit/build/lib/processor_unit/camera_front.py -> /home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages/processor_unit
+[7.069s] copying /home/raspi-earth/project_ws/build/processor_unit/build/lib/processor_unit/main_processor.py -> /home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages/processor_unit
+[7.069s] copying /home/raspi-earth/project_ws/build/processor_unit/build/lib/processor_unit/camera_back.py -> /home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages/processor_unit
+[7.077s] byte-compiling /home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages/processor_unit/camera_front.py to camera_front.cpython-311.pyc
+[7.077s] byte-compiling /home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages/processor_unit/main_processor.py to main_processor.cpython-311.pyc
+[7.092s] byte-compiling /home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages/processor_unit/camera_back.py to camera_back.cpython-311.pyc
+[7.095s] running install_data
+[7.096s] running install_egg_info
+[7.216s] removing '/home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages/processor_unit-0.0.0-py3.11.egg-info' (and everything under it)
+[7.217s] Copying ../../build/processor_unit/processor_unit.egg-info to /home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages/processor_unit-0.0.0-py3.11.egg-info
+[7.218s] running install_scripts
+[7.453s] Installing camera_back script to /home/raspi-earth/project_ws/install/processor_unit/lib/processor_unit
+[7.456s] Installing camera_front script to /home/raspi-earth/project_ws/install/processor_unit/lib/processor_unit
+[7.457s] Installing esp32_bridge_node script to /home/raspi-earth/project_ws/install/processor_unit/lib/processor_unit
+[7.457s] Installing force_receiver_node script to /home/raspi-earth/project_ws/install/processor_unit/lib/processor_unit
+[7.458s] Installing main_processor script to /home/raspi-earth/project_ws/install/processor_unit/lib/processor_unit
+[7.459s] Installing steam_cam script to /home/raspi-earth/project_ws/install/processor_unit/lib/processor_unit
+[7.460s] Installing test script to /home/raspi-earth/project_ws/install/processor_unit/lib/processor_unit
+[7.461s] Installing uart_command_and_status_to_pi5 script to /home/raspi-earth/project_ws/install/processor_unit/lib/processor_unit
+[7.465s] Installing uart_zero_two_w script to /home/raspi-earth/project_ws/install/processor_unit/lib/processor_unit
+[7.465s] writing list of installed files to '/home/raspi-earth/project_ws/build/processor_unit/install.log'
+[7.670s] Invoked command in '/home/raspi-earth/project_ws/src/processor_unit' returned '0': PYTHONPATH=/home/raspi-earth/project_ws/build/processor_unit/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/processor_unit build --build-base /home/raspi-earth/project_ws/build/processor_unit/build install --record /home/raspi-earth/project_ws/build/processor_unit/install.log --single-version-externally-managed install_data

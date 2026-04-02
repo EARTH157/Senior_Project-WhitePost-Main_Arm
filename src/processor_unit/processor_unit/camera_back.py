@@ -42,8 +42,8 @@ class YoloWebcamBackNode(Node):
                 self.is_active = True
                 self.get_logger().info("🚀 [BACK] Node Active")
                 
-        # 🔴 ปิดกล้องเมื่อได้รับคำสั่ง none (เช่น ตอนกดติดแล้ว หรือกลับ Home) เท่านั้น
-        elif command in ["none", "off"]:
+        # 🔴 ปิดกล้องเมื่อได้รับคำสั่ง none, off หรือเมื่อมีการเรียกกล้องหน้า (front)
+        elif command in ["none", "off", "front"]:
             if self.is_active:
                 self.is_active = False
                 if hasattr(self, 'cap') and self.cap is not None and self.cap.isOpened():

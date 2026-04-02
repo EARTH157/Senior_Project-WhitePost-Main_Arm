@@ -42,7 +42,7 @@ class Main_Processor(Node):
         self.step_total = 0
         self.step_current = 0
         self.delay_ticks = 0 
-        self.speed_homing_deg_s = 150.0
+        self.speed_homing_deg_s = 160.0
         
         self.homing_phase = 0       
         self.final_home_pos = None  
@@ -71,18 +71,18 @@ class Main_Processor(Node):
         
         # --- ตัวแปรสำหรับระบบ Camera Tracking ---
         self.is_tracking_mode = False  
-        self.tracking_kp_xy = 0.01  
-        self.tracking_kp_depth = 0.05
-        self.tracking_max_step = 1.5  
-        self.RADIUS_DEAD_ZONE = 40.0  
+        self.tracking_kp_xy = 0.02  
+        self.tracking_kp_depth = 0.02
+        self.tracking_max_step = 4.0  
+        self.RADIUS_DEAD_ZONE = 20.0  
         self.lock_start_time = 0.0  
         
         self.preset_x = 500.0
-        self.preset_y = 200.0  
+        self.preset_y = 300.0  
         self.preset_z = 550.0  
         
         self.preset_back_x = -500.0 
-        self.preset_back_y = -200.0  
+        self.preset_back_y = -300.0  
         self.preset_back_z = 550.0
         
         self.sub_command = self.create_subscription(String, '/robot_command', self.cb_robot_command, 10)
@@ -120,6 +120,7 @@ class Main_Processor(Node):
 
         self.subscription = self.create_subscription(Point, '/target_position', self.listener_callback, 10)
         self.pub_active_cam = self.create_publisher(String, '/active_camera', 10)
+        self.pub_target_label = self.create_publisher(String, '/set_target_label', 10)
         
         self.sub_cal1 = self.create_subscription(Bool, '/joint1/calibrated', self.cb_cal1, 10)
         self.sub_cal2 = self.create_subscription(Bool, '/joint2/calibrated', self.cb_cal2, 10)
@@ -527,6 +528,8 @@ class Main_Processor(Node):
                     self.get_logger().info("💡 ภารกิจสำเร็จ: ไฟปุ่มลิฟต์สว่างแล้ว!")
                 elif not is_front and self.floor_level_changed:
                     self.get_logger().info("⬆️ ภารกิจสำเร็จ: ลิฟต์กำลังเคลื่อนที่ (ต่างระดับ)!")
+                    
+                self.pub_target_label.publish(String(data="none"))
                 
                 self.press_retry_count = 0
                 self.floor_level_changed = False 
@@ -555,6 +558,8 @@ class Main_Processor(Node):
                     self.get_logger().info("💡 ภารกิจสำเร็จ: ไฟปุ่มลิฟต์สว่างแล้ว!")
                 elif not is_front and self.floor_level_changed:
                     self.get_logger().info("⬆️ ภารกิจสำเร็จ: ลิฟต์กำลังเคลื่อนที่ (ต่างระดับ)!")
+                    
+                self.pub_target_label.publish(String(data="none"))
                 
                 self.press_retry_count = 0
                 self.floor_level_changed = False 
@@ -784,6 +789,30 @@ class Main_Processor(Node):
     def timer_callback(self):
         if not self.system_ready:
             return
+        
+        # 🟢 [ส่วนที่เพิ่มใหม่] เช็คประตูลิฟต์เปิดระหว่างเตรียมการ (Preset -> Track)
+        # ถ้าประตูเปิด และเรากำลังอยู่ในโหมดเตรียมตัว (Preset หรือ Tracking หรือ กำลังจะกด)
+        if self.elevator_door_open:
+            # ตรวจสอบว่าอยู่ในสถานะที่ควรยกเลิกหรือไม่:
+            # 1. กำลังเคลื่อนที่ไปจุดเล็ง (post_move_action == 'TRACK')
+            # 2. หรือ กำลังล็อกเป้าหมายอยู่ (is_tracking_mode)
+            # 3. หรือ อยู่ในขั้นตอนการกดปุ่ม (press_sequence_state ไม่ใช่ IDLE)
+            is_preparing = (hasattr(self, 'post_move_action') and self.post_move_action == 'TRACK')
+            is_busy = self.is_tracking_mode or self.press_sequence_state != 'IDLE' or is_preparing
+
+            # ถ้ายุ่งอยู่ และยังไม่ได้เริ่มกระบวนการกลับบ้าน (homing_phase == 0)
+            if is_busy and self.homing_phase == 0:
+                self.get_logger().info("🚪 ประตูเปิดเองระหว่างเตรียมการ! ยกเลิกภารกิจและกลับ Home ทันที")
+                
+                # ล้างสถานะการทำงานทั้งหมด
+                self.is_tracking_mode = False
+                self.press_sequence_state = 'IDLE'
+                self.post_move_action = None
+                self.is_moving = False # หยุดการเคลื่อนที่ปัจจุบัน
+                
+                # สั่งกลับบ้าน
+                self.execute_go_home()
+                return # ออกจาก callback ทันทีเพื่อไปเริ่ม homing ในรอบถัดไป
         
         if self.press_sequence_state != 'IDLE':
             self.process_button_press_sequence()

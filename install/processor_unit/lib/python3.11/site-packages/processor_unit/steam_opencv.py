@@ -79,7 +79,7 @@ class SocketTrackerNode(Node):
         self.frame_counter = 0
         self.SKIP_FRAMES = 5 if not self.simulation_mode else 0 
         self.TARGET_RADIUS = 80      
-        self.RADIUS_DEAD_ZONE = 40   
+        self.RADIUS_DEAD_ZONE = 20   
         self.waiting_for_robot = False
         self.last_msg_time = 0  
         self.robot_tracking_state = False 
@@ -120,24 +120,12 @@ class SocketTrackerNode(Node):
                 self.is_active = True
                 self.get_logger().info("🚀 [TRACKER] อุ่นเครื่องรับ Socket แล้ว!")
                 
-        # 🔴 ถ้าเป็นคำสั่งอื่น (เช่น start, home) ให้ปิดตัวเองพักเครื่อง
+        # 🔴 ปิดกล้องหน้าต่างและการคำนวณ (แต่รักษาการเชื่อมต่อ Socket ไว้)
         elif command in ["none", "off"]:
             if self.is_active:
                 self.is_active = False
-                self.camera_ready = False
-                # คืนทรัพยากร
-                if self.simulation_mode:
-                    if hasattr(self, 'cap') and self.cap is not None and self.cap.isOpened():
-                        self.cap.release()
-                else:
-                    if hasattr(self, 'conn') and self.conn:
-                        try: self.conn.close()
-                        except: pass
-                    if hasattr(self, 's') and self.s:
-                        try: self.s.close()
-                        except: pass
-                    self.s = None 
-                self.get_logger().info("💤 [TRACKER] พักการเชื่อมต่อ Socket")
+                # 🟢 ไม่ปิด Socket และกล้องแล้ว! แค่แจ้งสถานะว่าเข้าสู่โหมด Standby
+                self.get_logger().info("💤 [TRACKER] Standby (รักษาการเชื่อมต่อไว้แต่หยุดคำนวณ)")
         
     def cb_robot_ready(self, msg):
         if msg.data:
@@ -217,11 +205,6 @@ class SocketTrackerNode(Node):
                     # ถ้าเพิ่งปิด ให้ทำลายหน้าต่าง
                     cv2.destroyAllWindows()
                     self.was_active = False
-
-                # 🟢 ถ้าไม่ได้ทำงานอยู่ ให้พักแป๊บนึงเพื่อลด CPU และเริ่มรอบใหม่
-                if not self.is_active:
-                    time.sleep(0.05) 
-                    continue
 
                 current_time = time.time()
 
@@ -314,6 +297,8 @@ class SocketTrackerNode(Node):
                     
                 # --- 🧠 ส่วนประมวลผล (Processing) ---
                 if frame is not None:
+                    if not self.is_active:
+                        continue
                     display_frame = frame.copy()
 
                     cv2.line(display_frame, (CENTER_X, 0), (CENTER_X, RES_H), (255, 255, 0), 1)

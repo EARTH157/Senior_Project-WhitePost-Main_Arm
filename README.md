@@ -98,7 +98,7 @@ ssh raspi-earth@172.20.10.2
 ```bash
 ssh raspi-zero-two-w-earth@172.20.10.3
 # OR via Hotspot IP:
-ssh raspi-zero-two-w-earth@10.42.0.142
+ssh raspi-zero-two-w-earth@10.42.0.142 
 ```
 
 Note: If you encounter SSH key errors, clear the old key using: ```bash ssh-keygen -R 10.42.0.142 ``` or ```bash ssh-keygen -R 172.20.10.2 ```
