@@ -81,9 +81,9 @@ class Main_Processor(Node):
         self.preset_y = 300.0  
         self.preset_z = 550.0  
         
-        self.preset_back_x = -500.0 
+        self.preset_back_x = -400.0 
         self.preset_back_y = -300.0  
-        self.preset_back_z = 550.0
+        self.preset_back_z = 650.0
         
         self.sub_command = self.create_subscription(String, '/robot_command', self.cb_robot_command, 10)
         self.pub_command = self.create_publisher(String, '/robot_command', 10)
