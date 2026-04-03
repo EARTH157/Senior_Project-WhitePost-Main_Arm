@@ -112,6 +112,7 @@ class Joint2Driver(Node):
                 if diff <= WARN_DIFF_THRESHOLD:
                     self.get_logger().info(f"✅ Sensor reconnected! Position unchanged (Diff {diff:.2f}°). Auto-Resuming...")
                     self.sensor_timeout = False # ยกเลิกสถานะ Timeout กลับไปทำงานปกติ
+                    self.is_homed = True
                 else:
                     self.get_logger().warn(f"⚠️ Sensor reconnected, but arm MOVED ({diff:.2f}°)! Forcing recalibration.")
                     self.is_homed = False       # บังคับ Calibrate ใหม่
@@ -260,12 +261,16 @@ class Joint2Driver(Node):
             time.sleep(0.02) # รันที่ประมาณ 50Hz (ทุกๆ 20ms)
             
             # 🚨 [SAFETY E-STOP] ถ้าไม่ได้รับค่าเซ็นเซอร์เกิน 0.5 วินาที
-            if time.time() - self.last_sensor_rx_time > 0.5:
+            if self.latest_raw_sensor_val is None:
+                # 🟢 ถ้าระบบเพิ่งรันและยังไม่เคยได้ค่าแรกเลย ให้รอไปก่อน (ให้เวลา ESP32 บูท)
+                self.last_sensor_rx_time = time.time() 
+            elif time.time() - self.last_sensor_rx_time > 0.5:
                 if self.is_homed:
                     self.get_logger().error("🚨 SENSOR TIMEOUT! ล็อคมอเตอร์ฉุกเฉินและแข็งค้าง!", throttle_duration_sec=1.0)
                 self.target_hz = 0.0
                 self.current_hz = 0.0
                 self.is_homed = False # ยกเลิกสถานะเพื่อไม่รับคำสั่งขยับต่อ
+                self.sensor_timeout = True # 🟢 เพิ่มบรรทัดนี้! เพื่อบอกระบบว่าสายหลุด จะได้รอ Auto-Resume
                 continue
 
             if not self.is_homed or self.current_target is None or self.sensor_timeout:
