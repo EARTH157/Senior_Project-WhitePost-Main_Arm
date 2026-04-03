@@ -3,6 +3,7 @@ import rclpy
 from rclpy.node import Node
 import serial
 import json
+import time
 from std_msgs.msg import Float32MultiArray, Float32
 
 SERIAL_PORT = '/dev/ttyUSB0'
@@ -15,34 +16,29 @@ class ESP32BridgeNode(Node):
         # =========================================================
         # ⚙️ 1. ตั้งค่า MUX Channel สำหรับเซนเซอร์ AS5600
         # =========================================================
-        self.MUX_CH_J1 = 7   # ให้ Joint 1 อ่านข้อมูลจาก MUX ช่อง 7
-        self.MUX_CH_J2 = 1   # ให้ Joint 2 อ่านข้อมูลจาก MUX ช่อง 1
-        self.MUX_CH_J3 = 0   # ให้ Joint 3 อ่านข้อมูลจาก MUX ช่อง 0
+        self.MUX_CH_J1 = 7   
+        self.MUX_CH_J2 = 1   
+        self.MUX_CH_J3 = 0   
         
         # =========================================================
         # ⚙️ 2. ตั้งค่า MUX Channel และช่องเสียบสำหรับ Servo (PCA9685)
         # =========================================================
-        self.MUX_CH_SERVO = 2     # ให้บอร์ด PCA9685 เสียบอยู่ที่ MUX ช่อง 2
-        self.SERVO_PIN_J4 = 0     # Joint 4 (ข้อมือ) ต่อกับ Servo ขาที่ 0
-        self.SERVO_PIN_J5 = 1     # Joint 5 (กลีบมือ) ต่อกับ Servo ขาที่ 1
+        self.MUX_CH_SERVO = 2     
+        self.SERVO_PIN_J4 = 0     
+        self.SERVO_PIN_J5 = 1     
         
         # =========================================================
         # ⚙️ 3. ตั้งค่าการแสดงผลข้อความ (Debug Output)
         # =========================================================
-        self.ENABLE_DEBUG = True  # เปลี่ยนเป็น False หากไม่ต้องการให้โชว์ข้อความใน Terminal
-        self.DEBUG_INTERVAL = 50  # จำนวนรอบที่จะให้ Print 1 ครั้ง (50 รอบ = ประมาณ 0.5 วินาที)
-        # =========================================================
-
-        try:
-            self.ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=0.01)
-            # --- เพิ่ม 2 บรรทัดนี้เพื่อป้องกัน ESP32 โดน Reset ค้าง ---
-            self.ser.setDTR(False)
-            self.ser.setRTS(False)
-            # ---------------------------------------------------
-            self.get_logger().info(f"✅ เชื่อมต่อ ESP32 สำเร็จที่ {SERIAL_PORT}")
-        except Exception as e:
-            self.get_logger().fatal(f"🛑 Error: {e}")
-            raise SystemExit
+        self.ENABLE_DEBUG = True  
+        self.DEBUG_INTERVAL = 50  
+        
+        # 🟢 ตัวแปรสำหรับ Auto-Reconnect
+        self.ser = None
+        self.last_reconnect_time = 0.0
+        
+        # พยายามเชื่อมต่อครั้งแรก
+        self.connect_serial()
 
         # Publisher สำหรับส่งค่าดิบของ AS5600 ให้แต่ละ Joint
         self.pub_raw_j1 = self.create_publisher(Float32, '/sensor/as5600/joint1', 10)
@@ -52,16 +48,37 @@ class ESP32BridgeNode(Node):
         # รับคำสั่งขยับกลีบมือมาจาก main_processor 
         self.create_subscription(Float32MultiArray, '/servo/set_angle', self.cb_set_servo, 10)
 
-        # ตัวแปรสำหรับลดความถี่ในการ Print ลง Terminal
         self.debug_counter = 0
 
         # วนลูปอ่านข้อมูล 100Hz
         self.create_timer(0.01, self.read_serial_data)
 
+    def connect_serial(self):
+        """ ฟังก์ชันพยายามเชื่อมต่อ USB """
+        try:
+            if self.ser is not None and self.ser.is_open:
+                self.ser.close()
+            self.ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=0.01)
+            self.ser.setDTR(False)
+            self.ser.setRTS(False)
+            self.get_logger().info(f"✅ เชื่อมต่อ ESP32 สำเร็จที่ {SERIAL_PORT}")
+        except Exception as e:
+            self.get_logger().warn(f"⏳ ไม่สามารถเชื่อมต่อ ESP32 ได้ ({e}) กำลังพยายามเชื่อมต่อใหม่...", throttle_duration_sec=2.0)
+            self.ser = None
+
     def read_serial_data(self):
         """ อ่านค่า Devices Map และ AS5600 จาก ESP32 """
-        if self.ser.in_waiting > 0:
-            try:
+        # 🟢 1. ถ้ายังเชื่อมต่อไม่ได้ ให้พยายามต่อใหม่ทุกๆ 2 วินาที
+        if self.ser is None or not self.ser.is_open:
+            current_time = time.time()
+            if current_time - self.last_reconnect_time > 2.0:
+                self.last_reconnect_time = current_time
+                self.connect_serial()
+            return
+
+        # 🟢 2. อ่านข้อมูล พร้อมดักจับ Error กรณีสายหลุดกลางคัน
+        try:
+            if self.ser.in_waiting > 0:
                 line = self.ser.readline().decode('utf-8', errors='ignore').strip()
                 if not line or not line.startswith("{"):
                     return
@@ -70,29 +87,22 @@ class ESP32BridgeNode(Node):
                 devices = data.get("devices", {})
                 angles = data.get("as5600", [])
                 
-                # แปลงตัวแปรช่องเป็น String เพื่อเช็คชนิดอุปกรณ์
                 str_j1 = str(self.MUX_CH_J1)
                 str_j2 = str(self.MUX_CH_J2)
                 str_j3 = str(self.MUX_CH_J3)
 
-                # 🚨 [SAFETY E-STOP] ตรวจสอบว่าเซ็นเซอร์ AS5600 ทั้ง 3 ตัวเชื่อมต่ออยู่ครบหรือไม่
                 j1_ok = (devices.get(str_j1) == "as5600" and len(angles) > self.MUX_CH_J1)
                 j2_ok = (devices.get(str_j2) == "as5600" and len(angles) > self.MUX_CH_J2)
                 j3_ok = (devices.get(str_j3) == "as5600" and len(angles) > self.MUX_CH_J3)
 
-                # ถ้ามีตัวใดตัวหนึ่งหายไป ให้หยุดส่งข้อมูลทั้งหมด!
                 if not (j1_ok and j2_ok and j3_ok):
-                    self.get_logger().error("🚨 SENSOR DROP DETECTED! สายเซ็นเซอร์หลุด! หยุดส่งพิกัดเพื่อล็อคแขนกล!", throttle_duration_sec=1.0)
-                    return # ข้ามการทำงานไปเลย เพื่อให้ฝั่ง Joint เกิด Timeout พร้อมกัน
+                    self.get_logger().error("🚨 SENSOR DROP DETECTED! สายเซ็นเซอร์ภายในหลุด! หยุดส่งพิกัดเพื่อล็อคแขนกล!", throttle_duration_sec=1.0)
+                    return 
 
-                # ตรวจสอบและ Publish ข้อมูล AS5600 (ตามปกติถ้าครบ 3 ตัว)
                 self.pub_raw_j1.publish(Float32(data=float(angles[self.MUX_CH_J1])))
                 self.pub_raw_j2.publish(Float32(data=float(angles[self.MUX_CH_J2])))
                 self.pub_raw_j3.publish(Float32(data=float(angles[self.MUX_CH_J3])))
 
-                # ---------------------------------------------------------
-                # 🐛 SECTION DEBUG: Print โชว์สถานะการทำงาน (ทำงานเมื่อ ENABLE_DEBUG = True)
-                # ---------------------------------------------------------
                 if self.ENABLE_DEBUG:
                     self.debug_counter += 1
                     if self.debug_counter >= self.DEBUG_INTERVAL:
@@ -100,7 +110,6 @@ class ESP32BridgeNode(Node):
                         val_j2 = angles[self.MUX_CH_J2] if len(angles) > self.MUX_CH_J2 else 'N/A'
                         val_j3 = angles[self.MUX_CH_J3] if len(angles) > self.MUX_CH_J3 else 'N/A'
                         
-                        # สร้างข้อความสรุปสถานะการอ่านค่า
                         msg = (
                             f"\n--- [ESP32 Sensor Status] ---\n"
                             f"📍 Joint 1 (Mux {self.MUX_CH_J1}): {val_j1} unit\n"
@@ -112,37 +121,46 @@ class ESP32BridgeNode(Node):
                         self.get_logger().info(msg)
                         self.debug_counter = 0
 
-            except json.JSONDecodeError:
-                pass
-            except Exception as e:
-                pass
+        # 🟢 ดักจับ Error OSError กรณีสาย USB หลุด
+        except (OSError, serial.SerialException) as e:
+            self.get_logger().error(f"🚨 สาย USB ของ ESP32 หลุด! กำลังเข้าสู่โหมดรอการเชื่อมต่อใหม่... ({e})")
+            if self.ser:
+                self.ser.close()
+            self.ser = None # รีเซ็ตพอร์ต เพื่อให้มันต่อใหม่ในลูปหน้า
+            
+        except json.JSONDecodeError:
+            pass
+        except Exception as e:
+            pass
 
     def cb_set_servo(self, msg):
         """ Pi สั่งการให้ Servo ขยับ (ส่งคำสั่งไป ESP32) """
+        if self.ser is None or not self.ser.is_open:
+            return # ถ้าสายหลุดอยู่ ไม่ต้องทำอะไร
+            
         data = msg.data
-        
-        # รูปแบบจาก main_processor ส่งมาคือ [mux_เดิม, ch1_เดิม, angle_j4, ch2_เดิม, angle_j5]
         if len(data) >= 5:
             angle_j4 = int(data[2])
             angle_j5 = int(data[4])
             
-            # สร้างคำสั่งส่งให้ ESP32
             cmd_j4 = f"S{self.MUX_CH_SERVO}:{self.SERVO_PIN_J4}:{angle_j4}\n"
             cmd_j5 = f"S{self.MUX_CH_SERVO}:{self.SERVO_PIN_J5}:{angle_j5}\n"
             
-            self.ser.write(cmd_j4.encode('utf-8'))
-            self.ser.write(cmd_j5.encode('utf-8'))
-            
-            # ---------------------------------------------------------
-            # 🐛 SECTION DEBUG: Print ทันทีเมื่อมีการสั่งงาน Servo (ทำงานเมื่อ ENABLE_DEBUG = True)
-            # ---------------------------------------------------------
-            if self.ENABLE_DEBUG:
-                self.get_logger().info(
-                    f"📤 [CMD SERVO] สั่งงานไปที่ข้อมือ (J4): {angle_j4}° | กลีบมือ (J5): {angle_j5}°"
-                )
+            try:
+                self.ser.write(cmd_j4.encode('utf-8'))
+                self.ser.write(cmd_j5.encode('utf-8'))
+                
+                if self.ENABLE_DEBUG:
+                    self.get_logger().info(
+                        f"📤 [CMD SERVO] สั่งงานไปที่ข้อมือ (J4): {angle_j4}° | กลีบมือ (J5): {angle_j5}°"
+                    )
+            except (OSError, serial.SerialException):
+                self.get_logger().error("🚨 เขียนข้อมูลไป ESP32 ไม่ได้ สาย USB อาจจะหลุด!")
+                self.ser.close()
+                self.ser = None
 
     def destroy_node(self):
-        if hasattr(self, 'ser') and self.ser.is_open:
+        if hasattr(self, 'ser') and self.ser is not None and self.ser.is_open:
             self.ser.close()
         super().destroy_node()
 

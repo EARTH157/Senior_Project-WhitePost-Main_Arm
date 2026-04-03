@@ -81,9 +81,9 @@ class Main_Processor(Node):
         self.preset_y = 300.0  
         self.preset_z = 550.0  
         
-        self.preset_back_x = -500.0 
+        self.preset_back_x = -400.0 
         self.preset_back_y = -300.0  
-        self.preset_back_z = 550.0
+        self.preset_back_z = 650.0
         
         self.sub_command = self.create_subscription(String, '/robot_command', self.cb_robot_command, 10)
         self.pub_command = self.create_publisher(String, '/robot_command', 10)
@@ -248,7 +248,6 @@ class Main_Processor(Node):
         self.get_logger().info("▶️ [COMMAND] GO START BACK: ไปท่าเตรียมพร้อม (ด้านหลัง)...")
         self.pub_active_cam.publish(String(data="back")) 
         self.is_tracking_mode = False 
-        self.post_move_action = 'TRACK'
         
         target_start_joints = [270.0, 90.0, 8.0, 180.0, 90.0]
         target_xyz = self.calculate_forward_kinematics(target_start_joints[0], target_start_joints[1], target_start_joints[2])
@@ -270,6 +269,7 @@ class Main_Processor(Node):
         self.get_logger().info(f"🎯 [COMMAND] PRESET BACK: กางแขนไปพิกัดเตรียมเล็งกล้อง (ด้านหลัง)...")
         self.pub_active_cam.publish(String(data="back")) 
         self.is_tracking_mode = False
+        self.post_move_action = 'TRACK'
         
         try:
             target_jts = self.calculate_inverse_kinematics(self.preset_back_x, self.preset_back_y, self.preset_back_z)
