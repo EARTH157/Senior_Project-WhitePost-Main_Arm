@@ -48,7 +48,7 @@ class ESP32BridgeNode(Node):
         # รับคำสั่งขยับกลีบมือมาจาก main_processor 
         self.create_subscription(Float32MultiArray, '/servo/set_angle', self.cb_set_servo, 10)
 
-        self.debug_counter = 0
+        self.debug_counter = self.DEBUG_INTERVAL
 
         # วนลูปอ่านข้อมูล 100Hz
         self.create_timer(0.01, self.read_serial_data)

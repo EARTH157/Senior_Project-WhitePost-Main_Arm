@@ -228,7 +228,7 @@ ros2 topic pub --once /joint1/calibrate std_msgs/msg/Bool "{data: true}"
 ros2 topic pub --once /toggle_tracking std_msgs/msg/Bool "{data: true}"
 ros2 topic pub --once /go_home std_msgs/msg/Bool "{data: true}"
 ros2 topic pub --once /go_start std_msgs/msg/Bool "{data: true}"
-ros2 topic pub --once /set_target_label std_msgs/msg/String "{data: 'button'}"
+ros2 topic pub --once /set_target_label std_msgs/msg/String "{data: 'btn_down'}"
 ```
 
 ---

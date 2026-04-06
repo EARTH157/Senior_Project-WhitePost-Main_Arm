@@ -82,7 +82,8 @@ class Joint2Driver(Node):
         self.create_timer(0.5, self.report_status)
 
         # Auto-Resume Logic
-        self.check_initial_position()
+        #self.check_initial_position()
+        self.initial_position_checked = False # 🟢 เพิ่มบรรทัดนี้แทน
 
         # ตัวแปรควบคุมความเร็วและทิศทางแบบใหม่
         self.target_hz = 0.0
@@ -103,7 +104,15 @@ class Joint2Driver(Node):
         self.last_sensor_rx_time = time.time() # รีเซ็ตเวลาเมื่อเซ็นเซอร์ปกติ
         new_val = msg.data
 
-        # 🟢 ลอจิก Auto-Resume เมื่อสายเพิ่งกลับมาเชื่อมต่อได้
+        # 🟢 1. ต้องอัปเดตค่าล่าสุดก่อน เพื่อให้ฟังก์ชันอ่านองศาสามารถทำงานได้
+        self.latest_raw_sensor_val = new_val
+
+        # 🟢 2. ตรวจสอบ Auto-Resume ตอนเปิด Launch File ครั้งแรกสุด
+        if not getattr(self, 'initial_position_checked', False):
+            self.check_initial_position()
+            self.initial_position_checked = True
+
+        # 🟢 3. ลอจิก Auto-Resume เมื่อสาย USB หรือ Sensor สะอึกระหว่างทำงาน (โค้ดเดิม)
         if self.sensor_timeout:
             if self.last_known_good_raw is not None:
                 diff = abs(new_val - self.last_known_good_raw)
@@ -111,17 +120,15 @@ class Joint2Driver(Node):
                 
                 if diff <= WARN_DIFF_THRESHOLD:
                     self.get_logger().info(f"✅ Sensor reconnected! Position unchanged (Diff {diff:.2f}°). Auto-Resuming...")
-                    self.sensor_timeout = False # ยกเลิกสถานะ Timeout กลับไปทำงานปกติ
-                    self.is_homed = True
+                    self.is_homed = True 
+                    self.sensor_timeout = False 
                 else:
                     self.get_logger().warn(f"⚠️ Sensor reconnected, but arm MOVED ({diff:.2f}°)! Forcing recalibration.")
-                    self.is_homed = False       # บังคับ Calibrate ใหม่
+                    self.is_homed = False       
                     self.sensor_timeout = False
         else:
             # เก็บค่าล่าสุดไว้เผื่อสายหลุด
             self.last_known_good_raw = new_val
-            
-        self.latest_raw_sensor_val = new_val
 
     # ---------------------------------------------------------
     # 💾 STATE CHECKING

@@ -72,8 +72,8 @@ class Main_Processor(Node):
         # --- ตัวแปรสำหรับระบบ Camera Tracking ---
         self.is_tracking_mode = False  
         self.tracking_kp_xy = 0.02  
-        self.tracking_kp_depth = 0.02
-        self.tracking_max_step = 4.0  
+        self.tracking_kp_depth = 0.04
+        self.tracking_max_step = 10.0  
         self.RADIUS_DEAD_ZONE = 20.0  
         self.lock_start_time = 0.0  
         
@@ -431,8 +431,8 @@ class Main_Processor(Node):
         
         max_angle_diff = max([abs(t - c) for t, c in zip(self.target_joints, self.current_joints)])
         duration = max_angle_diff / self.speed_joint_deg_s
-        if duration < 0.05: 
-             duration = 0.05
+        if duration < 0.03: 
+             duration = 0.03
              
         self.step_total = int(duration / self.timer_period)
         if self.step_total == 0: self.step_total = 1
