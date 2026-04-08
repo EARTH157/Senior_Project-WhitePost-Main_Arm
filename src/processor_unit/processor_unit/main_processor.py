@@ -42,7 +42,7 @@ class Main_Processor(Node):
         self.step_total = 0
         self.step_current = 0
         self.delay_ticks = 0 
-        self.speed_homing_deg_s = 160.0
+        self.speed_homing_deg_s = 300.0
         
         self.homing_phase = 0       
         self.final_home_pos = None  
@@ -336,7 +336,7 @@ class Main_Processor(Node):
         self.target_joints = [self.current_joints[0], 90.0, 8.0, 90.0, 90.0]
         max_diff = max([abs(tj - cj) for tj, cj in zip(self.target_joints, self.current_joints)])
         duration = max_diff / self.speed_homing_deg_s  
-        if duration < 0.3: duration = 0.3
+        if duration < 0.2: duration = 0.2
         self.step_total = int(duration / self.timer_period)
         if self.step_total == 0: self.step_total = 1
         self.step_current = 0

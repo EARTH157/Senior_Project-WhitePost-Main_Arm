@@ -30,7 +30,7 @@ KI = 0.2
 KD = 0.1
 
 # Speed Settings
-MIN_DELAY = 0.0005   
+MIN_DELAY = 0.0003   
 MAX_DELAY = 0.001   
 PULSE_WIDTH = 0.00005 
 
