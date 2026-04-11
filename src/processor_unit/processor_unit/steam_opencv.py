@@ -78,7 +78,7 @@ class SocketTrackerNode(Node):
         self.target_label = "none"
         self.frame_counter = 0
         self.SKIP_FRAMES = 5 if not self.simulation_mode else 0 
-        self.TARGET_RADIUS = 80      
+        self.TARGET_RADIUS = 120      
         self.RADIUS_DEAD_ZONE = 20   
         self.waiting_for_robot = False
         self.last_msg_time = 0  
@@ -193,18 +193,23 @@ class SocketTrackerNode(Node):
             while rclpy.ok(): 
                 rclpy.spin_once(self, timeout_sec=0.01)
                 
-                # 🟢 จัดการหน้าต่าง OpenCV อย่างปลอดภัยใน Main Thread
-                if self.is_active and not getattr(self, 'was_active', False):
-                    # ถ้าเพิ่งเปิด ให้สร้างหน้าต่าง
-                    cv2.namedWindow("Robot View", cv2.WINDOW_AUTOSIZE)
-                    cv2.namedWindow("Tuner", cv2.WINDOW_NORMAL)
-                    cv2.createTrackbar("Confidence", "Tuner", 50, 100, nothing)
-                    self.was_active = True
-                
-                elif not self.is_active and getattr(self, 'was_active', False):
-                    # ถ้าเพิ่งปิด ให้ทำลายหน้าต่าง
-                    cv2.destroyAllWindows()
-                    self.was_active = False
+                key = cv2.waitKey(1) & 0xFF
+                if key == ord('q'): 
+                    break
+                elif key == ord('s'):
+                    self.cmd_pub.publish(String(data="start"))
+                elif key == ord('p'):
+                    self.cmd_pub.publish(String(data="preset"))
+                elif key == ord('t'):
+                    self.cmd_pub.publish(String(data="track"))
+                    self.robot_tracking_state = True
+                    self.waiting_for_robot = False
+                    self.last_r = 0
+                elif key == ord('h'):
+                    self.cmd_pub.publish(String(data="home"))
+                elif key == ord('f'):
+                    self.fake_force_pub.publish(String(data="1"))
+                # ==========================================
 
                 current_time = time.time()
 
@@ -424,28 +429,12 @@ class SocketTrackerNode(Node):
                             msg.x = 0.0
                             msg.y = 0.0
                             msg.z = 0.0
-                            self.get_logger().info("🎯 [TARGET LOCKED] Sending Stop/Press signal to Robot")
-                        else:
-                            self.get_logger().info(f"📤 Sent Error: X={msg.x:.1f}, Y={msg.y:.1f}, Z={msg.z:.1f}")
+                            #self.get_logger().info("🎯 [TARGET LOCKED] Sending Stop/Press signal to Robot")
+                        #else:
+                        #    self.get_logger().info(f"📤 Sent Error: X={msg.x:.1f}, Y={msg.y:.1f}, Z={msg.z:.1f}")
                     
                     cv2.imshow("Robot View", display_frame)
-                    
-                    key = cv2.waitKey(1) & 0xFF
-                    if key == ord('q'): 
-                        break
-                    elif key == ord('s'):
-                        self.cmd_pub.publish(String(data="start"))
-                    elif key == ord('p'):
-                        self.cmd_pub.publish(String(data="preset"))
-                    elif key == ord('t'):
-                        self.cmd_pub.publish(String(data="track"))
-                        self.robot_tracking_state = True
-                        self.waiting_for_robot = False
-                        self.last_r = 0
-                    elif key == ord('h'):
-                        self.cmd_pub.publish(String(data="home"))
-                    elif key == ord('f'):
-                        self.fake_force_pub.publish(String(data="1"))
+
                 else:
                     self.get_logger().warn("⚠️ Frame Decode Error")
 

@@ -27,7 +27,7 @@ KD = 0.01
 PULSE_WIDTH = 0.00005
 
 ANGLE_TOLERANCE = 0.5
-WARN_DIFF_THRESHOLD = 2.0  # ยอมให้คลาดเคลื่อนได้ 0.5 องศา ถ้าเกินนี้ต้อง Homing ใหม่
+WARN_DIFF_THRESHOLD = 1.0  # ยอมให้คลาดเคลื่อนได้ 0.5 องศา ถ้าเกินนี้ต้อง Homing ใหม่
 STATE_FILE = "joint1_last_state.json" 
 
 class Joint1Driver(Node):
@@ -75,6 +75,7 @@ class Joint1Driver(Node):
         # -----------------------------------------------------
         #self.check_initial_position()
         self.initial_position_checked = False # 🟢 เพิ่มบรรทัดนี้แทน
+        self.is_homing_active = False
 
         # ตัวแปรควบคุมความเร็วและทิศทางแบบใหม่
         self.target_hz = 0.0
@@ -184,9 +185,17 @@ class Joint1Driver(Node):
             threading.Thread(target=self.sequence_homing_wrapper, daemon=True).start()
 
     def sequence_homing_wrapper(self):
+        self.is_homing_active = True  # 🟢 เปิดโหมด Homing (ล็อกไม่ให้ Auto-Resume ทำงานแทรก)
         self.is_homed = False
+        
+        # บังคับหยุด PID/Motor Worker ชั่วคราวไม่ให้กวนการขยับ
+        self.target_hz = 0.0
+        self.current_hz = 0.0
+        
         self.enable_motor(True)
         self.perform_homing_sequence()
+        
+        self.is_homing_active = False # 🟢 ปิดโหมด Homing
 
     def target_callback(self, msg: Float32):
         if not self.is_homed:
@@ -244,25 +253,26 @@ class Joint1Driver(Node):
     def pid_worker(self):
         # --- ปรับจูนใหม่สำหรับ TB6600 (Microstep 1/8 หรือ 1600 Pulse/Rev) ---
         MAX_HZ = 3500.0       # ⬆️ เพิ่มความเร็วสูงสุด (2000 Hz = วิ่งประมาณ 1.2 รอบ/วินาที)
-        MIN_HZ = 200.0        # ⬆️ เพิ่มความเร็วต่ำสุด เลี้ยงรอบไว้ไม่ให้หยุดกระชาก
-        ACCEL_RATE = 250.0    # ⬆️ เพิ่มอัตราเร่ง ให้ขยับเข้าหาเป้าหมายสมูทๆ
+        MIN_HZ = 30.0        # ⬆️ เพิ่มความเร็วต่ำสุด เลี้ยงรอบไว้ไม่ให้หยุดกระชาก
+        ACCEL_RATE = 400.0    # ⬆️ เพิ่มอัตราเร่ง ให้ขยับเข้าหาเป้าหมายสมูทๆ
         SPEED_MULTIPLIER = 50.0 # ⬆️ เพิ่มตัวคูณให้ PID ตอบสนองไวขึ้น
         
         while self.running and rclpy.ok():
-            time.sleep(0.02) # รันที่ประมาณ 50Hz (ทุกๆ 20ms)
+            time.sleep(0.01) # รันที่ประมาณ 50Hz (ทุกๆ 20ms)
             
             # 🚨 [SAFETY E-STOP] ถ้าไม่ได้รับค่าเซ็นเซอร์เกิน 0.5 วินาที
-            if self.latest_raw_sensor_val is None:
-                # 🟢 ถ้าระบบเพิ่งรันและยังไม่เคยได้ค่าแรกเลย ให้รอไปก่อน (ให้เวลา ESP32 บูท)
-                self.last_sensor_rx_time = time.time() 
-            elif time.time() - self.last_sensor_rx_time > 0.5:
-                if self.is_homed:
-                    self.get_logger().error("🚨 SENSOR TIMEOUT! ล็อคมอเตอร์ฉุกเฉินและแข็งค้าง!", throttle_duration_sec=1.0)
-                self.target_hz = 0.0
-                self.current_hz = 0.0
-                self.is_homed = False # ยกเลิกสถานะเพื่อไม่รับคำสั่งขยับต่อ
-                self.sensor_timeout = True # 🟢 เพิ่มบรรทัดนี้! เพื่อบอกระบบว่าสายหลุด จะได้รอ Auto-Resume
-                continue
+            if not getattr(self, 'is_homing_active', False):
+                if self.latest_raw_sensor_val is None:
+                    # 🟢 ถ้าระบบเพิ่งรันและยังไม่เคยได้ค่าแรกเลย ให้รอไปก่อน (ให้เวลา ESP32 บูท)
+                    self.last_sensor_rx_time = time.time() 
+                elif time.time() - self.last_sensor_rx_time > 0.5:
+                    if self.is_homed:
+                        self.get_logger().error("🚨 SENSOR TIMEOUT! ล็อคมอเตอร์ฉุกเฉินและแข็งค้าง!", throttle_duration_sec=1.0)
+                    self.target_hz = 0.0
+                    self.current_hz = 0.0
+                    self.is_homed = False # ยกเลิกสถานะเพื่อไม่รับคำสั่งขยับต่อ
+                    self.sensor_timeout = True # 🟢 เพิ่มบรรทัดนี้! เพื่อบอกระบบว่าสายหลุด จะได้รอ Auto-Resume
+                    continue
 
             if not self.is_homed or self.current_target is None or self.sensor_timeout:
                 self.target_hz = 0.0
@@ -339,7 +349,7 @@ class Joint1Driver(Node):
             # (ด้านล่างนี้เป็นสูตรเดิมของ Joint 1)
             # ==========================================
             RAW_AT_0_DEG  = 400   
-            RAW_AT_90_DEG = 1500.0
+            RAW_AT_90_DEG = 1381.0
                 
             slope = (90.0 - 0.0) / (RAW_AT_90_DEG - RAW_AT_0_DEG)
             real_angle = slope * (current_raw - RAW_AT_0_DEG) + 0.0

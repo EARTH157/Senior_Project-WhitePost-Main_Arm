@@ -35,7 +35,7 @@ MAX_DELAY = 0.001
 PULSE_WIDTH = 0.00005 
 
 ANGLE_TOLERANCE = 1.0
-WARN_DIFF_THRESHOLD = 1.0  
+WARN_DIFF_THRESHOLD = 1.0
 STATE_FILE = "joint3_last_state.json" 
 
 class Joint3Driver(Node):
@@ -259,12 +259,12 @@ class Joint3Driver(Node):
     def pid_worker(self):
         # --- ปรับจูนใหม่สำหรับ TB6600 (Microstep 1/8 หรือ 1600 Pulse/Rev) ---
         MAX_HZ = 3500.0       # ⬆️ เพิ่มความเร็วสูงสุด (2000 Hz = วิ่งประมาณ 1.2 รอบ/วินาที)
-        MIN_HZ = 200.0        # ⬆️ เพิ่มความเร็วต่ำสุด เลี้ยงรอบไว้ไม่ให้หยุดกระชาก
-        ACCEL_RATE = 250.0    # ⬆️ เพิ่มอัตราเร่ง ให้ขยับเข้าหาเป้าหมายสมูทๆ
+        MIN_HZ = 30.0        # ⬆️ เพิ่มความเร็วต่ำสุด เลี้ยงรอบไว้ไม่ให้หยุดกระชาก
+        ACCEL_RATE = 400.0    # ⬆️ เพิ่มอัตราเร่ง ให้ขยับเข้าหาเป้าหมายสมูทๆ
         SPEED_MULTIPLIER = 50.0 # ⬆️ เพิ่มตัวคูณให้ PID ตอบสนองไวขึ้น
         
         while self.running and rclpy.ok():
-            time.sleep(0.02) # รันที่ประมาณ 50Hz (ทุกๆ 20ms)
+            time.sleep(0.01) # รันที่ประมาณ 50Hz (ทุกๆ 20ms)
             
             # 🚨 [SAFETY E-STOP] ถ้าไม่ได้รับค่าเซ็นเซอร์เกิน 0.5 วินาที
             if self.latest_raw_sensor_val is None:
