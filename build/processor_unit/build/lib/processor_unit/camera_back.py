@@ -1,141 +1,157 @@
 import rclpy
 from rclpy.node import Node
 import cv2
-import os
+import numpy as np
 import time
-from ament_index_python.packages import get_package_share_directory
-from ultralytics import YOLO
 from std_msgs.msg import Bool, String
+from sensor_msgs.msg import Image       
+from cv_bridge import CvBridge
 
-class YoloWebcamBackNode(Node):
+class AprilTagBackNode(Node):
     def __init__(self):
-        super().__init__('yolo_webcam_back_node')
+        super().__init__('camera_back_node')
         
-        self.model_loaded = False
+        # 🚩 สวิตช์โหมด: True = Gazebo, False = กล้องจริง (USB)
+        self.declare_parameter('simulation_mode', False)
+        self.simulation_mode = self.get_parameter('simulation_mode').value
+        
         self.camera_ready = False
-        self.last_retry_time = 0.0
+        self.camera_index = '/dev/v4l/by-path/platform-xhci-hcd.1-usb-0:1:1.0-video-index0' # 🟢 เปลี่ยนพอร์ตกล้องหน้าของคุณที่นี่
         
-        # 🟢 ตัวแปรสำหรับคุม Skip Frame
-        self.frame_count = 0
-        self.skip_frames = 3 # ประมวลผล 1 เฟรม ข้าม 2 เฟรม (ลดภาระลง 66%)
+        # ==========================================
+        # 🎯 ตั้งค่าระบบตรวจจับ AprilTag (มาตรฐาน Tag36h11)
+        # ==========================================
+        self.aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_36h11)
+        self.aruco_params = cv2.aruco.DetectorParameters()
         
-        # เก็บ Path ไว้ใช้ตอนโหลดซ้ำ
-        package_share_dir = get_package_share_directory('processor_unit')
-        self.model_path = os.path.join(package_share_dir, 'elevator_door.pt')
-        self.camera_index = '/dev/v4l/by-path/platform-xhci-hcd.1-usb-0:1:1.0-video-index0'
-        
-        self.get_logger().info("Starting YOLO Node (BACK). Checking AI and Camera...")
+        # รองรับ OpenCV เวอร์ชั่นใหม่
+        if hasattr(cv2.aruco, 'ArucoDetector'):
+            self.detector = cv2.aruco.ArucoDetector(self.aruco_dict, self.aruco_params)
+        else:
+            self.detector = None # ใช้ฟังก์ชันเก่าแทน
 
+        # 🟢 ค่าที่ต้องจูน: ระยะห่างพิกเซลระหว่าง Tag 2 ตัวตอน "ประตูลิฟต์ปิดสนิท"
+        self.door_closed_dist_px = 360.0 
+        self.margin_px = 20.0 # ระยะคลาดเคลื่อน (ถ้ากว้างกว่า 300+80 ถือว่าประตูเปิด)
+        
         self.pub_door_status = self.create_publisher(Bool, '/elevator_door_status', 10)
+        self.pub_image = self.create_publisher(Image, '/yolo/back/image_result', 10)
+        
+        self.bridge = CvBridge()
         self.is_active = False
         self.sub_active = self.create_subscription(String, '/active_camera', self.cb_active, 10)
 
-        # ตั้งเวลาให้ทำงานถี่ขึ้นเพื่อเช็คทั้งภาพและการเชื่อมต่อ
-        self.timer = self.create_timer(0.033, self.timer_callback)
+        if self.simulation_mode:
+            self.sub_image = self.create_subscription(Image, '/camera_back/image_raw', self.image_callback, 10)
+        else:
+            self.timer = self.create_timer(0.033, self.timer_callback)
+            
+        self.get_logger().info("✅ AprilTag BACK Node Ready! (Low-CPU Mode)")
 
     def cb_active(self, msg):
         command = msg.data.strip().lower()
-        
-        # 🟢 เปิดทำงานเมื่อได้รับคำสั่ง back
-        if command == "back": 
+        if command == "back":
             if not self.is_active:
                 self.is_active = True
-                self.get_logger().info("🚀 [BACK] Node Active")
-                
-        # 🔴 ปิดกล้องเมื่อได้รับคำสั่ง none, off หรือเมื่อมีการเรียกกล้องหน้า (front)
+                self.get_logger().info("🚀 [BACK] Camera Active")
         elif command in ["none", "off", "front"]:
             if self.is_active:
                 self.is_active = False
-                if hasattr(self, 'cap') and self.cap is not None and self.cap.isOpened():
+                if not self.simulation_mode and hasattr(self, 'cap'):
                     self.cap.release()
-                self.camera_ready = False
+                    self.camera_ready = False
                 cv2.destroyAllWindows()
-                self.get_logger().info("💤 [BACK] Camera released and Node standby")
+                self.get_logger().info("💤 [BACK] Standby")
+
+    # ==================================================
+    # 🧠 ลอจิกหลัก: ประมวลผลภาพเพื่อหา AprilTag
+    # ==================================================
+    def process_frame(self, frame):
+        # แปลงภาพเป็นขาวดำเพื่อให้อ่าน Tag ได้เร็วและแม่นยำขึ้น
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        
+        if self.detector:
+            corners, ids, rejected = self.detector.detectMarkers(gray)
+        else:
+            corners, ids, rejected = cv2.aruco.detectMarkers(gray, self.aruco_dict, parameters=self.aruco_params)
+        
+        # สมมติฐานเริ่มต้น: ถ้าไม่เห็นอะไรเลย = ประตูเปิด (เผื่อคนบัง)
+        door_is_open = True 
+        
+        if ids is not None:
+            # วาดกรอบสี่เหลี่ยมรอบ Tag ที่เจอ
+            cv2.aruco.drawDetectedMarkers(frame, corners, ids)
+            
+            # ถ้าเจอ Tag 2 ตัวขึ้นไป (ติดที่ประตูซ้าย 1 ตัว ขวา 1 ตัว)
+            if len(ids) >= 2:
+                # คำนวณจุดกึ่งกลางของ Tag ทั้ง 2 ตัว
+                c1 = np.mean(corners[0][0], axis=0)
+                c2 = np.mean(corners[1][0], axis=0)
+                
+                # หาระยะห่าง (Pixel Distance) ระหว่าง Tag ทั้งสอง
+                distance = np.linalg.norm(c1 - c2)
+                
+                # วาดเส้นเชื่อมระหว่าง Tag
+                cv2.line(frame, (int(c1[0]), int(c1[1])), (int(c2[0]), int(c2[1])), (0, 255, 255), 2)
+                cv2.putText(frame, f"Gap: {distance:.1f} px", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
+                
+                # ลอจิกประตู: ถ้าระยะห่างมากกว่าตอนปิด + ระยะขอบเขต = ประตูเปิด
+                if distance > (self.door_closed_dist_px + self.margin_px):
+                    door_is_open = True
+                    cv2.putText(frame, "STATUS: DOOR OPEN", (20, 80), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
+                else:
+                    door_is_open = False
+                    cv2.putText(frame, "STATUS: DOOR CLOSED", (20, 80), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 3)
+            else:
+                # ถ้าเห็นแค่ 1 ตัว (อาจจะประตูเปิดจนซ่อน Tag หรือโดนบัง)
+                cv2.putText(frame, "STATUS: DOOR OPEN (Tag Lost)", (20, 80), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 165, 255), 3)
+
+        # ส่งสถานะประตูไปให้ main_processor ตัดสินใจ
+        self.pub_door_status.publish(Bool(data=door_is_open))
+        
+        # แปลงภาพส่งขึ้น RViz2
+        img_msg = self.bridge.cv2_to_imgmsg(frame, "bgr8")
+        self.pub_image.publish(img_msg)
+        
+        cv2.imshow("AprilTag BACK Test", frame)
+        cv2.waitKey(1)
+
+    # --------------------------------------------------
+    def image_callback(self, msg):
+        if not self.is_active: return
+        try:
+            frame = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+            self.process_frame(frame)
+        except Exception as e:
+            self.get_logger().error(f"Sim Image Error: {e}")
 
     def timer_callback(self):
-        # 1. ถ้าไม่ได้ถูกสั่งให้ Active (is_active = False) ให้หยุดทำงานทันที ไม่ต้อง Reconnect
-        if not self.is_active:
-            return
-
-        current_time = time.time()
+        if not self.is_active: return
         
-        # 🟢 [ระบบ Auto-Reconnect] จะทำงานเฉพาะตอนที่ is_active เป็น True เท่านั้น
-        if not self.model_loaded or not self.camera_ready:
-            if current_time - self.last_retry_time > 2.0:
-                self.last_retry_time = current_time
-                
-                if not self.model_loaded:
-                    try:
-                        self.model = YOLO(self.model_path)
-                        self.model_loaded = True
-                        self.get_logger().info("✅ YOLO BACK loaded!")
-                    except Exception as e:
-                        self.get_logger().error(f"⏳ AI Load Failed: {e}")
-                
-                if self.model_loaded and not self.camera_ready:
-                    # 🟢 บังคับใช้ MJPG เพื่อแก้ปัญหาสีชมพู/เขียว
-                    self.cap = cv2.VideoCapture(self.camera_index, cv2.CAP_V4L2)
-                    if self.cap.isOpened():
-                        self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-                        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-                        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-                        self.camera_ready = True
-                        self.get_logger().info("✅ Webcam BACK connected (MJPG)!")
+        if not self.camera_ready:
+            self.cap = cv2.VideoCapture(self.camera_index, cv2.CAP_V4L2)
+            if self.cap.isOpened():
+                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                self.camera_ready = True
+            else:
+                self.get_logger().warn("🚨 Camera Disconnected!")
             return
 
-        # อ่านภาพ (เมื่อพร้อมและ Active เท่านั้น)
         ret, frame = self.cap.read()
-        
-        if not ret: 
-            self.get_logger().warn("🚨 BACK Camera Disconnected!")
-            self.camera_ready = False
-            self.cap.release()
-            return
-
-        # --- ส่วน YOLO และ Skip Frame คงเดิม ---
-        self.frame_count += 1
-        if self.frame_count % self.skip_frames != 0:
-            return
-
-        try:
-            results = self.model(frame, imgsz=320, verbose=False)
-            
-            # ?? [ส่วนที่เติมเข้าไป] วิเคราะห์ผลและ Publish
-            door_is_open = False
-            
-            # วนลูปดูทุกกล่องที่ YOLO ตรวจเจอในเฟรมนี้
-            for box in results[0].boxes:
-                cls_id = int(box.cls[0].item())           # ไอดีของคลาส
-                class_name = self.model.names[cls_id]     # ชื่อของคลาส
-                conf = float(box.conf[0].item())          # ความมั่นใจ (Confidence)
-                
-                # เช็คว่าชื่อคลาสตรงกับประตูเปิด และมีความมั่นใจมากกว่า 50%
-                # ?? หมายเหตุ: เปลี่ยนคำว่า "elevator_door_open" ให้ตรงกับชื่อคลาสที่คุณเทรนมาในโมเดล elevator_door.pt
-                if (class_name == "elevator_door_open" or class_name == "door_open") and conf > 0.5:
-                    door_is_open = True
-                    break  # เจอแค่ 1 กล่องก็ถือว่าประตูเปิดแล้ว หยุดลูปได้เลย
-
-            # ส่งค่าไปยัง Main Processor
-            self.pub_door_status.publish(Bool(data=door_is_open))
-
-            # ??? แสดงภาพผลลัพธ์
-            cv2.imshow("FRONT Camera", results[0].plot()) # ถ้าเป็นไฟล์ back อย่าลืมแก้ชื่อหน้าต่างเป็น "BACK Camera" นะครับ
-            cv2.waitKey(1)
-            
-        except Exception as e:
-            self.get_logger().error(f"Error: {e}")
+        if ret:
+            self.process_frame(frame)
 
     def destroy_node(self):
-        if hasattr(self, 'cap') and self.cap is not None and self.cap.isOpened():
+        if not self.simulation_mode and hasattr(self, 'cap'):
             self.cap.release()
         super().destroy_node()
 
 def main(args=None):
     rclpy.init(args=args)
-    node = YoloWebcamBackNode()
+    node = AprilTagBackNode()
     rclpy.spin(node)
     node.destroy_node()
-    cv2.destroyAllWindows()
     rclpy.shutdown()
 
 if __name__ == '__main__':

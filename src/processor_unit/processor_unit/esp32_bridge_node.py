@@ -30,7 +30,7 @@ class ESP32BridgeNode(Node):
         # =========================================================
         # ⚙️ 3. ตั้งค่าการแสดงผลข้อความ (Debug Output)
         # =========================================================
-        self.ENABLE_DEBUG = True  
+        self.ENABLE_DEBUG = False  
         self.DEBUG_INTERVAL = 50  
         
         # 🟢 ตัวแปรสำหรับ Auto-Reconnect

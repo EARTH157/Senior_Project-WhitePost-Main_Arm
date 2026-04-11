@@ -36,13 +36,13 @@ class Main_Processor(Node):
         self.move_mode = 'LINEAR' 
         
         self.is_moving = False   
-        self.speed_mm_s = 50.0  
+        self.speed_mm_s = 20.0 
         self.speed_joint_deg_s = 60.0  
         self.timer_period = 0.02 
         self.step_total = 0
         self.step_current = 0
         self.delay_ticks = 0 
-        self.speed_homing_deg_s = 300.0
+        self.speed_homing_deg_s = 50.0
         
         self.homing_phase = 0       
         self.final_home_pos = None  
@@ -72,14 +72,14 @@ class Main_Processor(Node):
         # --- ตัวแปรสำหรับระบบ Camera Tracking ---
         self.is_tracking_mode = False  
         self.tracking_kp_xy = 0.02  
-        self.tracking_kp_depth = 0.04
+        self.tracking_kp_depth = 0.03
         self.tracking_max_step = 10.0  
         self.RADIUS_DEAD_ZONE = 20.0  
         self.lock_start_time = 0.0  
         
-        self.preset_x = 500.0
-        self.preset_y = 300.0  
-        self.preset_z = 550.0  
+        self.preset_x = 600.0
+        self.preset_y = 350.0  
+        self.preset_z = 650.0  
         
         self.preset_back_x = -400.0 
         self.preset_back_y = -300.0  
@@ -319,21 +319,36 @@ class Main_Processor(Node):
         
     def execute_go_home(self):
         self.post_move_action = None
-        self.get_logger().info("🏠 [COMMAND] GO HOME: เก็บแขนกลับท่า Home...")
+        self.get_logger().info("🏠 [COMMAND] GO HOME: เริ่มกระบวนการเก็บแขนเข้าท่า Home...")
         self.pub_active_cam.publish(String(data="none")) 
         self.is_tracking_mode = False 
+        
+        if self.current_joints is not None:
+            if self.current_angles[1] is not None: 
+                self.current_joints[0] = float(self.current_angles[1])
+            if self.current_angles[2] is not None: 
+                self.current_joints[1] = float(self.current_angles[2])
+            if self.current_angles[3] is not None: 
+                self.current_joints[2] = float(self.current_angles[3])
+        
+        # 📌 ท่า Home สุดท้าย (J1=90, J2=180, J3=8, J4=90, J5=90)
         home_joints = [90.0, 180.0, 8.0, 90.0, 90.0] 
+        
         if self.current_joints is None:
             target_xyz = self.calculate_forward_kinematics(home_joints[0], home_joints[1], home_joints[2])
             self.publish_joints(home_joints)
             self.current_joints = home_joints
             self.current_pos = target_xyz
             return
+            
         self.final_home_pos = self.calculate_forward_kinematics(home_joints[0], home_joints[1], home_joints[2])
         self.homing_phase = 1
         self.move_mode = 'JOINT'
         self.start_joints = list(self.current_joints)
+        
+        # 📌 เฟส 1: J1 ค้างไว้ที่เดิม, J2->90, J3->8, J4->90, J5->90
         self.target_joints = [self.current_joints[0], 90.0, 8.0, 90.0, 90.0]
+        
         max_diff = max([abs(tj - cj) for tj, cj in zip(self.target_joints, self.current_joints)])
         duration = max_diff / self.speed_homing_deg_s  
         if duration < 0.2: duration = 0.2
@@ -380,10 +395,9 @@ class Main_Processor(Node):
                         self.force_detected = False
                         
                         temp_speed = self.speed_mm_s
-                        self.speed_mm_s = 20.0 
                         
                         push_dir = 1.0 if self.current_pos[1] >= 0 else -1.0
-                        self.move_to_offset(0.0, 150.0 * push_dir, 0.0) 
+                        self.move_to_offset(0.0, 250.0 * push_dir, 0.0) 
                         
                         self.speed_mm_s = temp_speed
                         
@@ -501,7 +515,6 @@ class Main_Processor(Node):
                 self.is_moving = False 
                 
                 temp_speed = self.speed_mm_s
-                self.speed_mm_s = 50.0 
                 self.move_to_absolute(self.pre_press_pos[0], self.pre_press_pos[1], self.pre_press_pos[2])
                 self.speed_mm_s = temp_speed
                 
@@ -511,7 +524,6 @@ class Main_Processor(Node):
             elif not self.is_moving:
                 self.get_logger().warn("⚠️ กดจนสุดแขนแล้วแต่ไม่เจอเซ็นเซอร์ ถอยกลับ...")
                 temp_speed = self.speed_mm_s
-                self.speed_mm_s = 50.0
                 self.move_to_absolute(self.pre_press_pos[0], self.pre_press_pos[1], self.pre_press_pos[2])
                 self.speed_mm_s = temp_speed
                 
@@ -863,10 +875,29 @@ class Main_Processor(Node):
 
         if t == 1.0:
             if self.homing_phase == 1:
+                # =========================================================
+                # 🟢 ด่านตรวจเฟส 1: ต้องรอให้ J2=90 และ J3=8 ให้เสร็จ "ครบทั้งคู่" ก่อน!
+                # =========================================================
+                curr_j2 = self.current_angles[2] if hasattr(self, 'current_angles') else None
+                curr_j3 = self.current_angles[3] if hasattr(self, 'current_angles') else None
+                
+                # เช็คว่ามอเตอร์ถึงเป้าหมายหรือยัง (ยอมให้คลาดเคลื่อนได้นิดหน่อยที่ 3 องศา)
+                wait_j2 = (curr_j2 is not None) and (abs(curr_j2 - 90.0) > 10.0)
+                wait_j3 = (curr_j3 is not None) and (abs(curr_j3 - 8.0) > 10.0)
+                
+                if wait_j2 or wait_j3:
+                    if self.step_current % 25 == 0: 
+                        j2_str = f"{curr_j2:.1f}" if curr_j2 else "N/A"
+                        j3_str = f"{curr_j3:.1f}" if curr_j3 else "N/A"
+                        self.get_logger().info(f"⏳ รอฮาร์ดแวร์พับแขนให้เสร็จ... (เป้า J2:90 J3:8 | ปัจจุบัน J2:{j2_str} J3:{j3_str})")
+                    return # ⛔ เด้งออกไปก่อน ห้ามเข้าเฟส 2 เด็ดขาดจนกว่าจะพับเสร็จ
+                # =========================================================
+
                 self.get_logger().info("🏠 เฟส 1 เสร็จสิ้น! เริ่มเฟส 2 (หมุนฐาน J1 เข้า 90 องศา)")
                 self.homing_phase = 2
                 self.start_joints = list(self.current_joints)
                 
+                # 📌 เฟส 2: J1 หมุนไป 90, ข้อต่ออื่นๆ (รวมถึง J3 ที่ 8°) ค้างตำแหน่งเดิมไว้
                 self.target_joints = [
                     90.0, 
                     self.current_joints[1], 
@@ -882,7 +913,7 @@ class Main_Processor(Node):
                 self.step_total = int(duration / self.timer_period)
                 if self.step_total == 0: self.step_total = 1
                 self.step_current = 0 
-                return 
+                return
 
             elif self.homing_phase == 2:
                 curr_j1 = self.current_angles[1] if hasattr(self, 'current_angles') else None
@@ -891,16 +922,21 @@ class Main_Processor(Node):
                         self.get_logger().info(f"⏳ กำลังรอ Joint 1 หมุนเข้าที่ 90°... (ปัจจุบัน: {curr_j1:.1f}°)")
                     return 
 
-                self.get_logger().info("🏠 เฟส 2 เสร็จสิ้น! เริ่มเฟส 3 (พับแขนเก็บ: J2->180°, J4->90°)")
+                self.get_logger().info("🏠 เฟส 2 เสร็จสิ้น! เริ่มเฟส 3 (ดัน Joint 2 ไปที่ 180 องศา)")
                 self.homing_phase = 3
                 self.start_joints = list(self.current_joints)
                 
-                self.target_joints = [90.0, 180.0, 8.0, 90.0, 90.0]
+                # 📌 เฟส 3: J2 ไปที่ 180, ข้อต่ออื่นๆ ค้างตำแหน่งเดิมไว้
+                self.target_joints = [
+                    self.current_joints[0], 
+                    180.0, 
+                    self.current_joints[2], 
+                    self.current_joints[3], 
+                    self.current_joints[4]
+                ]
                 
                 diff_j2 = abs(180.0 - self.current_joints[1])
-                diff_j4 = abs(90.0 - self.current_joints[3])
-                max_diff = max(diff_j2, diff_j4) 
-                duration = max_diff / self.speed_homing_deg_s
+                duration = diff_j2 / self.speed_homing_deg_s
                 if duration < 0.3: duration = 0.3 
                 
                 self.step_total = int(duration / self.timer_period)

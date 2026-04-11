@@ -121,7 +121,7 @@ class SocketTrackerNode(Node):
                 self.get_logger().info("🚀 [TRACKER] อุ่นเครื่องรับ Socket แล้ว!")
                 
         # 🔴 ปิดกล้องหน้าต่างและการคำนวณ (แต่รักษาการเชื่อมต่อ Socket ไว้)
-        elif command in ["none", "off"]:
+        elif command in ["none", "off", "off_tracker"]:
             if self.is_active:
                 self.is_active = False
                 # 🟢 ไม่ปิด Socket และกล้องแล้ว! แค่แจ้งสถานะว่าเข้าสู่โหมด Standby

@@ -18,9 +18,9 @@ processor_unit/esp32_bridge_node.py
 processor_unit/force_receiver_node.py
 processor_unit/main_processor.py
 processor_unit/steam_opencv.py
-processor_unit/test.py
 processor_unit/uart_command_and_status_to_pi5.py
 processor_unit/uart_zero_two_w.py
+processor_unit/yolov8n.pt
 resource/processor_unit
 test/test_copyright.py
 test/test_flake8.py
