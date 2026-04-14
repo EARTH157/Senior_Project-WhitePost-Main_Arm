@@ -355,24 +355,73 @@ class Main_Processor(Node):
         self.is_moving = True
             
     def cb_target_error(self, msg):
-        if not self.is_tracking_mode or not self.system_ready or self.homing_phase != 0 or self.current_pos is None:
+        # 1. เช็คความพร้อมของระบบ
+        if not self.system_ready or self.homing_phase != 0 or self.current_pos is None:
+            return
+            
+        # 2. อนุญาตให้ทำงานเฉพาะตอน Track หรือ ตอนกำลังยื่นมือกด (PRESSING)
+        if not (self.is_tracking_mode or self.press_sequence_state == 'PRESSING'):
             return
 
-        #self.get_logger().info(f"📨 Msg received: {msg.x:.1f}, {msg.y:.1f}, {msg.z:.1f}")
-        
+        # ==========================================
+        # 🙈 3. จัดการจุดบอด (Blind Spot) เมื่อเป้าหลุดกล้อง
+        # ==========================================
         if msg.x == 9999.0:
-            if self.is_moving:
+            if self.press_sequence_state == 'PRESSING':
+                # กำลังแทงแขนเข้าไป แล้วกล้องมองไม่เห็นปุ่มแล้ว -> ไม่ต้องหยุด แทงต่อไปตามแนวเดิม!
+                pass 
+            elif self.is_moving:
+                # ถ้าเพิ่งเล็งเป้าแล้วหลุด ให้หยุดรอเป้าใหม่
                 self.get_logger().warn("🔍 เป้าหลุด! สั่งหุ่นยนต์หยุดนิ่งรอเป้าหมายใหม่...")
                 self.is_moving = False  
-            self.lock_start_time = 0.0  
-            self.pub_tracking_ready.publish(Bool(data=True)) 
+                self.lock_start_time = 0.0  
+                self.pub_tracking_ready.publish(Bool(data=True)) 
             return
 
+        # ==========================================
+        # 👀 4. คำนวณ Error และ Delta สำหรับการขยับ
+        # ==========================================
         err_x = msg.x       
         err_depth = msg.y   
         err_y = msg.z       
         limit = 20.0 
-        
+
+        # คำนวณระยะการขยับ (Delta)
+        delta_x = err_x * self.tracking_kp_xy      
+        delta_y = err_depth * self.tracking_kp_depth 
+        delta_z = err_y * self.tracking_kp_xy      
+
+        # Limit step size ไม่ให้แขนกระชากแรงเกินไป
+        distance = math.sqrt(delta_x**2 + delta_y**2 + delta_z**2)
+        if distance > self.tracking_max_step:
+            scale = self.tracking_max_step / distance
+            delta_x *= scale
+            delta_y *= scale
+            delta_z *= scale
+
+        # ==========================================
+        # 🚀 5. โหมด Active Aiming: กำลังยื่นแขนไปกดปุ่ม
+        # ==========================================
+        if self.press_sequence_state == 'PRESSING':
+            # ทิศทางการพุ่งแกนลึก (Y) ให้อ้างอิงเป้าหมายจากตอนที่เริ่มกด
+            push_dir = 1.0 if self.pre_press_pos[1] >= 0 else -1.0
+            target_y = self.pre_press_pos[1] + (150.0 * push_dir) # ปลายทางสุดระยะ
+            
+            # ปรับศูนย์ X, Z ตามกล้องล่าสุด (แก้ศูนย์ให้ตรงปุ่มเสมอ)
+            if self.current_pos[1] >= 0:
+                new_x = self.current_pos[0] + delta_x
+            else:
+                new_x = self.current_pos[0] - delta_x
+                
+            new_z = self.current_pos[2] + delta_z
+            
+            # ส่งพิกัดใหม่ (ดัดทิศทาง X,Z แต่พุ่งหน้า Y ไปที่เป้าหมายเดิม)
+            self.move_to_absolute(new_x, target_y, new_z)
+            return
+
+        # ==========================================
+        # 🎯 6. โหมด Tracking ปกติ: เล็งและล็อกเป้า 2 วินาที
+        # ==========================================
         if abs(err_x) <= limit and abs(err_y) <= limit and abs(err_depth) <= self.RADIUS_DEAD_ZONE:
             self.is_moving = False  
             
@@ -383,40 +432,36 @@ class Main_Processor(Node):
                 elapsed_time = time.time() - self.lock_start_time
                 if elapsed_time >= 2.0:
                     if self.press_sequence_state == 'IDLE':
-                        self.get_logger().info("✅ นิ่งครบ 2 วินาทีแล้ว! มั่นใจ! ยื่นมือไปกดเลย!")
-                        self.is_tracking_mode = False 
-                        self.lock_start_time = 0.0 
+                        self.get_logger().info("✅ นิ่งครบ 2 วินาทีแล้ว! เริ่มยื่นมือไปกดแบบ Dynamic (ยื่นไปแก้ศูนย์ไป)")
                         
+                        # เปลี่ยนสถานะเป็นเริ่มกด
                         self.press_sequence_state = 'PRESSING'
                         self.pre_press_pos = list(self.current_pos)
                         self.force_detected = False
                         
-                        temp_speed = self.speed_mm_s
+                        # ลดความเร็วลงเพื่อให้ขยับแก้ศูนย์ตามกล้องได้ทันและไม่กระชาก
                         self.speed_mm_s = 20.0 
                         
+                        # คำนวณเป้าหมาย Y ที่ต้องพุ่งไป
                         push_dir = 1.0 if self.current_pos[1] >= 0 else -1.0
-                        self.move_to_offset(0.0, 150.0 * push_dir, 0.0) 
+                        target_y = self.current_pos[1] + (150.0 * push_dir)
                         
-                        self.speed_mm_s = temp_speed
+                        # สั่งเคลื่อนที่เข้าหาเป้าหมาย
+                        self.move_to_absolute(self.current_pos[0], target_y, self.current_pos[2])
                         
+                        self.lock_start_time = 0.0
+            
             self.pub_tracking_ready.publish(Bool(data=True))
             return
 
+        # หากเป้าขยับหลุด Deadzone ระหว่างนับถอยหลัง ให้รีเซ็ตเวลาใหม่
         if self.lock_start_time != 0.0:
             self.get_logger().warn("🏃 เป้าหมายขยับหนี! ยกเลิกการจับเวลา กลับไป Track ต่อ...")
             self.lock_start_time = 0.0 
 
-        delta_x = err_x * self.tracking_kp_xy      
-        delta_y = err_depth * self.tracking_kp_depth 
-        delta_z = err_y * self.tracking_kp_xy      
-
-        distance = math.sqrt(delta_x**2 + delta_y**2 + delta_z**2)
-        if distance > self.tracking_max_step:
-            scale = self.tracking_max_step / distance
-            delta_x *= scale
-            delta_y *= scale
-            delta_z *= scale
-
+        # ==========================================
+        # 🕹️ 7. ขยับแขนตามกล้องในโหมดเล็ง (Tracking)
+        # ==========================================
         if self.current_pos[1] >= 0:
             new_x = self.current_pos[0] + delta_x
             new_y = self.current_pos[1] + delta_y
@@ -425,8 +470,6 @@ class Main_Processor(Node):
             new_y = self.current_pos[1] - delta_y
             
         new_z = self.current_pos[2] + delta_z
-
-        #self.get_logger().info(f"Target: X:{new_x:.1f}, Y:{new_y:.1f}, Z:{new_z:.1f} (Moved: {delta_x:.1f}, {delta_y:.1f}, {delta_z:.1f})")
 
         try:
             target_jts = self.calculate_inverse_kinematics(new_x, new_y, new_z)
@@ -449,7 +492,7 @@ class Main_Processor(Node):
         self.step_total = int(duration / self.timer_period)
         if self.step_total == 0: self.step_total = 1
         self.step_current = 0
-        self.is_moving = True 
+        self.is_moving = True
 
     def cb_angle1(self, msg): self.current_angles[1] = msg.data
     def cb_angle2(self, msg): self.current_angles[2] = msg.data
@@ -515,6 +558,7 @@ class Main_Processor(Node):
                 temp_speed = self.speed_mm_s
                 self.speed_mm_s = 50.0 
                 self.move_to_absolute(self.pre_press_pos[0], self.pre_press_pos[1], self.pre_press_pos[2])
+                self.move_mode = 'JOINT'
                 self.speed_mm_s = temp_speed
                 
                 self.check_door_start_time = time.time() 
@@ -524,7 +568,10 @@ class Main_Processor(Node):
                 self.get_logger().warn("⚠️ กดจนสุดแขนแล้วแต่ไม่เจอเซ็นเซอร์ ถอยกลับ...")
                 temp_speed = self.speed_mm_s
                 self.speed_mm_s = 50.0
+                self.get_logger().warn("⚠️ ไม่เจอแรงต้านที่ปุ่ม ถอยกลับ...")
                 self.move_to_absolute(self.pre_press_pos[0], self.pre_press_pos[1], self.pre_press_pos[2])
+                self.move_mode = 'JOINT'
+                self.press_sequence_state = 'WAIT_FOR_RETRACT'
                 self.speed_mm_s = temp_speed
                 
                 self.check_door_start_time = time.time()

@@ -429,7 +429,7 @@ class SocketTrackerNode(Node):
                             msg.x = 0.0
                             msg.y = 0.0
                             msg.z = 0.0
-                            self.get_logger().info("🎯 [TARGET LOCKED] Sending Stop/Press signal to Robot")
+                            #self.get_logger().info("🎯 [TARGET LOCKED] Sending Stop/Press signal to Robot")
                         #else:
                         #    self.get_logger().info(f"📤 Sent Error: X={msg.x:.1f}, Y={msg.y:.1f}, Z={msg.z:.1f}")
                     

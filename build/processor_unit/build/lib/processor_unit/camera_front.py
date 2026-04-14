@@ -32,7 +32,7 @@ class AprilTagFrontNode(Node):
 
         # 🟢 ค่าที่ต้องจูน: ระยะห่างพิกเซลระหว่าง Tag 2 ตัวตอน "ประตูลิฟต์ปิดสนิท"
         self.door_closed_dist_px = 300.0 
-        self.margin_px = 30.0 # ระยะคลาดเคลื่อน (ถ้ากว้างกว่า 300+80 ถือว่าประตูเปิด)
+        self.margin_px = 50.0# ระยะคลาดเคลื่อน (ถ้ากว้างกว่า 300+80 ถือว่าประตูเปิด)
         
         self.pub_door_status = self.create_publisher(Bool, '/elevator_door_status', 10)
         self.pub_image = self.create_publisher(Image, '/yolo/front/image_result', 10)
