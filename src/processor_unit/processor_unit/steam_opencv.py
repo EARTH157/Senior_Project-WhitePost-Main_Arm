@@ -20,8 +20,11 @@ os.environ["QT_QPA_PLATFORM"] = "xcb"
 
 # --- ค่าคงที่ ---
 RES_W, RES_H = 640, 480
-CENTER_X = RES_W // 2
-CENTER_Y = RES_H // 2
+OFFSET_X = 0    # ชดเชยแกน X (ซ้าย-ขวา) 
+OFFSET_Y = 100   # ชดเชยแกน Y ของภาพ = แกน Z ขึ้นลงของหุ่น 
+                # (สมมติกล้องติดอยู่ 'เหนือ' นิ้ว เราต้องเลื่อนศูนย์เป้าหมาย 'ลง' มานิดนึง)
+CENTER_X = (RES_W // 2) + OFFSET_X
+CENTER_Y = (RES_H // 2) + OFFSET_Y
 DEAD_ZONE = 40
 
 def nothing(x):
@@ -85,10 +88,7 @@ class SocketTrackerNode(Node):
         self.robot_tracking_state = False 
 
         # --- ตั้งค่า ROS 2 (Publishers/Subscribers) ---
-        cv2.namedWindow("Robot View", cv2.WINDOW_AUTOSIZE)
-        cv2.namedWindow("Tuner", cv2.WINDOW_NORMAL)
-        cv2.createTrackbar("Confidence", "Tuner", 50, 100, nothing)
-        
+        # ⚠️ ย้ายการสร้างหน้าต่างออกไปไว้ใน run_loop เพื่อไม่ให้แครช
         qos_profile = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
             history=HistoryPolicy.KEEP_LAST,
@@ -124,8 +124,7 @@ class SocketTrackerNode(Node):
         elif command in ["none", "off", "off_tracker"]:
             if self.is_active:
                 self.is_active = False
-                # 🟢 ไม่ปิด Socket และกล้องแล้ว! แค่แจ้งสถานะว่าเข้าสู่โหมด Standby
-                self.get_logger().info("💤 [TRACKER] Standby (รักษาการเชื่อมต่อไว้แต่หยุดคำนวณ)")
+                self.get_logger().info("💤 [TRACKER] Standby (รักษาการเชื่อมต่อไว้แต่หยุดคำนวณและปิดหน้าต่าง)")
         
     def cb_robot_ready(self, msg):
         if msg.data:
@@ -150,6 +149,7 @@ class SocketTrackerNode(Node):
             # 🔴 คำสั่งขยับอื่นๆ ให้ปิดวาล์วส่งพิกัดไว้ก่อน
             self.robot_tracking_state = False
             self.last_r = 0 
+            # ⚠️ ลบ cv2.destroyAllWindows() ตรงนี้ออก เพื่อป้องกัน Thread Crash
             self.get_logger().info(f"🛑 [TRACKER] ปิดวาล์วชั่วคราว รอหุ่นขยับ (Mode: {cmd.upper()})")
 
     def draw_text_bg(self, img, text, pos, font_scale=0.6, color=(255, 255, 255), thickness=2, bg_color=(0, 0, 0)):
@@ -192,6 +192,23 @@ class SocketTrackerNode(Node):
         try:
             while rclpy.ok(): 
                 rclpy.spin_once(self, timeout_sec=0.01)
+                
+                # --- 🧠 การจัดการหน้าต่างแบบปลอดภัยในลูปหลัก ---
+                if self.is_active and not self.was_active:
+                    cv2.namedWindow("Robot View", cv2.WINDOW_AUTOSIZE)
+                    cv2.namedWindow("Tuner", cv2.WINDOW_NORMAL)
+                    cv2.createTrackbar("Confidence", "Tuner", 50, 100, nothing)
+                    self.was_active = True
+                
+                elif not self.is_active and self.was_active:
+                    cv2.destroyAllWindows()
+                    self.was_active = False
+
+                if not self.is_active:
+                    time.sleep(0.05) # พัก CPU ตอนไม่ได้ใช้กล้อง
+                    continue
+
+                # ------------------------------------------------
                 
                 key = cv2.waitKey(1) & 0xFF
                 if key == ord('q'): 
@@ -237,7 +254,6 @@ class SocketTrackerNode(Node):
                                 self.get_logger().error("⏳ Webcam not found. Retrying...")
                         else:
                             try:
-                                # 🟢 ส่วนที่แก้ไขกลับคืนมา เพื่อสร้าง Socket และรอการเชื่อมต่อ
                                 if self.s is None:
                                     os.environ["QT_QPA_PLATFORM"] = "xcb"
                                     self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -247,7 +263,7 @@ class SocketTrackerNode(Node):
                                     self.s.settimeout(2.0)
                                 
                                 self.get_logger().info("🚀 Waiting for Socket connection...")
-                                self.conn, self.addr = self.s.accept() # 🟢 ตัวแปร self.addr ถูกสร้างที่นี่
+                                self.conn, self.addr = self.s.accept() 
                                 self.conn.settimeout(2.0)
                                 self.camera_ready = True
                                 self.payload_size = struct.calcsize("Q")
@@ -302,8 +318,6 @@ class SocketTrackerNode(Node):
                     
                 # --- 🧠 ส่วนประมวลผล (Processing) ---
                 if frame is not None:
-                    if not self.is_active:
-                        continue
                     display_frame = frame.copy()
 
                     cv2.line(display_frame, (CENTER_X, 0), (CENTER_X, RES_H), (255, 255, 0), 1)
@@ -313,8 +327,13 @@ class SocketTrackerNode(Node):
                     
                     self.draw_text_bg(display_frame, f"MODE: {'SIM' if self.simulation_mode else 'HW'} | TARGET: {self.target_label.upper()}", (10, 30), 0.6, (0, 255, 255))
 
-                    conf_thresh = cv2.getTrackbarPos("Confidence", "Tuner") / 100.0
-                    if conf_thresh == 0: conf_thresh = 0.01
+                    # 🛡️ ดักจับ Error เผื่อหน้าต่าง Tuner หาย
+                    try:
+                        conf_thresh = cv2.getTrackbarPos("Confidence", "Tuner") / 100.0
+                    except Exception:
+                        conf_thresh = 0.50
+                        
+                    if conf_thresh <= 0: conf_thresh = 0.01
 
                     results = self.model.predict(source=frame, conf=conf_thresh, imgsz=320, verbose=False)
                     boxes = results[0].boxes
@@ -353,7 +372,8 @@ class SocketTrackerNode(Node):
                                 lower_red1, upper_red1 = np.array([0, 0, 0]), np.array([50, 50, 255])
                                 red_mask = cv2.inRange(hsv, lower_red1, upper_red1)
                                 
-                                cv2.imshow("Red Mask Debug", red_mask)
+                                # หากมีการ debug ให้ระวังการสร้างหน้าต่างเสริมตรงนี้ด้วย
+                                # cv2.imshow("Red Mask Debug", red_mask)
                                 
                                 red_pixels = cv2.countNonZero(red_mask)
                                 box_area = roi.shape[0] * roi.shape[1]
@@ -429,10 +449,7 @@ class SocketTrackerNode(Node):
                             msg.x = 0.0
                             msg.y = 0.0
                             msg.z = 0.0
-                            #self.get_logger().info("🎯 [TARGET LOCKED] Sending Stop/Press signal to Robot")
-                        #else:
-                        #    self.get_logger().info(f"📤 Sent Error: X={msg.x:.1f}, Y={msg.y:.1f}, Z={msg.z:.1f}")
-                    
+
                     cv2.imshow("Robot View", display_frame)
 
                 else:

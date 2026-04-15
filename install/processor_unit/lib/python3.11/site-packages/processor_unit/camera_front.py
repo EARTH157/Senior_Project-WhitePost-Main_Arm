@@ -3,9 +3,13 @@ from rclpy.node import Node
 import cv2
 import numpy as np
 import time
+import subprocess
+import os
+import threading
 from std_msgs.msg import Bool, String
 from sensor_msgs.msg import Image       
 from cv_bridge import CvBridge
+from ultralytics import YOLO
 
 class AprilTagFrontNode(Node):
     def __init__(self):
@@ -16,23 +20,34 @@ class AprilTagFrontNode(Node):
         self.simulation_mode = self.get_parameter('simulation_mode').value
         
         self.camera_ready = False
-        self.camera_index = '/dev/v4l/by-path/platform-xhci-hcd.0-usb-0:1:1.0-video-index0' # 🟢 เปลี่ยนพอร์ตกล้องหน้าของคุณที่นี่
+        self.camera_index = '/dev/v4l/by-path/platform-xhci-hcd.0-usb-0:1:1.0-video-index0'
         
         # ==========================================
-        # 🎯 ตั้งค่าระบบตรวจจับ AprilTag (มาตรฐาน Tag36h11)
+        # 🔘 สวิตช์เปิด-ปิด ระบบ YOLO และเสียง
+        # ==========================================
+        self.enable_yolo_audio = True  # ค่าเริ่มต้นคือ "เปิด" ทำงาน
+        self.sub_toggle_yolo = self.create_subscription(Bool, '/toggle_yolo_audio', self.cb_toggle_yolo, 10)
+
+        # ==========================================
+        # 🤖 โหลดโมเดล YOLO สำหรับจับคน
+        # ==========================================
+        self.get_logger().info("⏳ กำลังโหลดโมเดล YOLOv8n...")
+        self.yolo_model = YOLO('/home/raspi-earth/project_ws/src/processor_unit/processor_unit/yolov8n.pt')
+        self.get_logger().info("✅ โหลดโมเดล YOLO สำเร็จ!")
+        
+        # ==========================================
+        # 🎯 ตั้งค่าระบบตรวจจับ AprilTag
         # ==========================================
         self.aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_36h11)
         self.aruco_params = cv2.aruco.DetectorParameters()
         
-        # รองรับ OpenCV เวอร์ชั่นใหม่
         if hasattr(cv2.aruco, 'ArucoDetector'):
             self.detector = cv2.aruco.ArucoDetector(self.aruco_dict, self.aruco_params)
         else:
-            self.detector = None # ใช้ฟังก์ชันเก่าแทน
+            self.detector = None 
 
-        # 🟢 ค่าที่ต้องจูน: ระยะห่างพิกเซลระหว่าง Tag 2 ตัวตอน "ประตูลิฟต์ปิดสนิท"
         self.door_closed_dist_px = 300.0 
-        self.margin_px = 50.0# ระยะคลาดเคลื่อน (ถ้ากว้างกว่า 300+80 ถือว่าประตูเปิด)
+        self.margin_px = 50.0
         
         self.pub_door_status = self.create_publisher(Bool, '/elevator_door_status', 10)
         self.pub_image = self.create_publisher(Image, '/yolo/front/image_result', 10)
@@ -40,17 +55,34 @@ class AprilTagFrontNode(Node):
         self.bridge = CvBridge()
         self.is_active = False
         self.sub_active = self.create_subscription(String, '/active_camera', self.cb_active, 10)
+        
+        # ==========================================
+        # 🗣️ ตั้งค่าระบบเสียงขอความช่วยเหลือ
+        # ==========================================
+        self.audio_file_help = "/home/raspi-earth/project_ws/src/processor_unit/processor_unit/help_way.wav"
+        self.last_audio_time = 0.0
+        self.audio_cooldown = 10.0 # หน่วงเวลาพูด 10 วินาที
+        
+        self.frame_count = 0
 
         if self.simulation_mode:
             self.sub_image = self.create_subscription(Image, '/camera_front/image_raw', self.image_callback, 10)
         else:
             self.timer = self.create_timer(0.033, self.timer_callback)
             
-        self.get_logger().info("✅ AprilTag FRONT Node Ready! (Low-CPU Mode)")
+        self.get_logger().info("✅ AprilTag FRONT Node Ready! (YOLO/Audio Toggle Enabled)")
+
+    # --------------------------------------------------
+    # 🔘 Callback สำหรับเปิด-ปิด YOLO และเสียง
+    # --------------------------------------------------
+    def cb_toggle_yolo(self, msg):
+        self.enable_yolo_audio = msg.data
+        status = "🟢 เปิดการทำงาน (ON)" if self.enable_yolo_audio else "🔴 ปิดการทำงาน (OFF)"
+        self.get_logger().info(f"🔄 ปรับสถานะ YOLO และเสียง: {status}")
 
     def cb_active(self, msg):
         command = msg.data.strip().lower()
-        if command == "front":
+        if command in ["front", "nav"]:
             if not self.is_active:
                 self.is_active = True
                 self.get_logger().info("🚀 [FRONT] Camera Active")
@@ -62,12 +94,50 @@ class AprilTagFrontNode(Node):
                     self.camera_ready = False
                 cv2.destroyAllWindows()
                 self.get_logger().info("💤 [FRONT] Standby")
+                
+    def request_elevator_help(self):
+        audio_thread = threading.Thread(target=self.play_audio_final_boss, args=(self.audio_file_help,))
+        audio_thread.start()
 
-    # ==================================================
-    # 🧠 ลอจิกหลัก: ประมวลผลภาพเพื่อหา AprilTag
-    # ==================================================
+    def play_audio_final_boss(self, file_path):
+        if not os.path.exists(file_path):
+            self.get_logger().error(f"❌ ไม่พบไฟล์เสียง: {file_path}")
+            return
+        try:
+            subprocess.run(["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", file_path])
+        except Exception as e:
+            self.get_logger().error(f"❌ เกิดข้อผิดพลาดในการเล่นเสียง: {e}")
+
     def process_frame(self, frame):
-        # แปลงภาพเป็นขาวดำเพื่อให้อ่าน Tag ได้เร็วและแม่นยำขึ้น
+        self.frame_count += 1
+        person_detected = False
+
+        # --------------------------------------------------
+        # 1. การประมวลผล YOLO (หาคน) - ทำงานเมื่อ enable_yolo_audio เป็น True เท่านั้น
+        # --------------------------------------------------
+        if self.enable_yolo_audio:
+            if self.frame_count % 10 == 0:
+                results = self.yolo_model(frame, classes=[0], verbose=False)
+                
+                for r in results:
+                    boxes = r.boxes
+                    for box in boxes:
+                        person_detected = True 
+                        
+                        x1, y1, x2, y2 = box.xyxy[0].int().tolist()
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 255), 2)
+                        cv2.putText(frame, "Person", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
+
+                if person_detected:
+                    current_time = time.time()
+                    if (current_time - self.last_audio_time) >= self.audio_cooldown:
+                        self.last_audio_time = current_time
+                        self.get_logger().info("👤 พบคน! กำลังขอความช่วยเหลือให้กดลิฟต์...")
+                        self.request_elevator_help()
+
+        # --------------------------------------------------
+        # 2. การประมวลผล AprilTag (ประเมินประตูลิฟต์) - ทำงานเสมอ
+        # --------------------------------------------------
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         
         if self.detector:
@@ -75,27 +145,20 @@ class AprilTagFrontNode(Node):
         else:
             corners, ids, rejected = cv2.aruco.detectMarkers(gray, self.aruco_dict, parameters=self.aruco_params)
         
-        # สมมติฐานเริ่มต้น: ถ้าไม่เห็นอะไรเลย = ประตูเปิด (เผื่อคนบัง)
         door_is_open = True 
         
         if ids is not None:
-            # วาดกรอบสี่เหลี่ยมรอบ Tag ที่เจอ
             cv2.aruco.drawDetectedMarkers(frame, corners, ids)
             
-            # ถ้าเจอ Tag 2 ตัวขึ้นไป (ติดที่ประตูซ้าย 1 ตัว ขวา 1 ตัว)
             if len(ids) >= 2:
-                # คำนวณจุดกึ่งกลางของ Tag ทั้ง 2 ตัว
                 c1 = np.mean(corners[0][0], axis=0)
                 c2 = np.mean(corners[1][0], axis=0)
                 
-                # หาระยะห่าง (Pixel Distance) ระหว่าง Tag ทั้งสอง
                 distance = np.linalg.norm(c1 - c2)
                 
-                # วาดเส้นเชื่อมระหว่าง Tag
                 cv2.line(frame, (int(c1[0]), int(c1[1])), (int(c2[0]), int(c2[1])), (0, 255, 255), 2)
                 cv2.putText(frame, f"Gap: {distance:.1f} px", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
                 
-                # ลอจิกประตู: ถ้าระยะห่างมากกว่าตอนปิด + ระยะขอบเขต = ประตูเปิด
                 if distance > (self.door_closed_dist_px + self.margin_px):
                     door_is_open = True
                     cv2.putText(frame, "STATUS: DOOR OPEN", (20, 80), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
@@ -103,20 +166,16 @@ class AprilTagFrontNode(Node):
                     door_is_open = False
                     cv2.putText(frame, "STATUS: DOOR CLOSED", (20, 80), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 3)
             else:
-                # ถ้าเห็นแค่ 1 ตัว (อาจจะประตูเปิดจนซ่อน Tag หรือโดนบัง)
                 cv2.putText(frame, "STATUS: DOOR OPEN (Tag Lost)", (20, 80), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 165, 255), 3)
 
-        # ส่งสถานะประตูไปให้ main_processor ตัดสินใจ
         self.pub_door_status.publish(Bool(data=door_is_open))
         
-        # แปลงภาพส่งขึ้น RViz2
         img_msg = self.bridge.cv2_to_imgmsg(frame, "bgr8")
         self.pub_image.publish(img_msg)
         
         cv2.imshow("AprilTag FRONT Test", frame)
         cv2.waitKey(1)
 
-    # --------------------------------------------------
     def image_callback(self, msg):
         if not self.is_active: return
         try:

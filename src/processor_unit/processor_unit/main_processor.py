@@ -71,7 +71,7 @@ class Main_Processor(Node):
         
         # --- ตัวแปรสำหรับระบบ Camera Tracking ---
         self.is_tracking_mode = False  
-        self.tracking_kp_xy = 0.01  
+        self.tracking_kp_xy = 0.01 
         self.tracking_kp_depth = 0.01
         self.tracking_max_step = 10.0  
         self.RADIUS_DEAD_ZONE = 20.0  
@@ -403,20 +403,23 @@ class Main_Processor(Node):
         # 🚀 5. โหมด Active Aiming: กำลังยื่นแขนไปกดปุ่ม
         # ==========================================
         if self.press_sequence_state == 'PRESSING':
-            # ทิศทางการพุ่งแกนลึก (Y) ให้อ้างอิงเป้าหมายจากตอนที่เริ่มกด
-            push_dir = 1.0 if self.pre_press_pos[1] >= 0 else -1.0
-            target_y = self.pre_press_pos[1] + (150.0 * push_dir) # ปลายทางสุดระยะ
+            # ในโหมดนี้ หุ่นยนต์กำลังเดินหน้าตามแกน Y อยู่แล้วโดยอัตโนมัติ
+            # เราจะไม่เรียก move_to_absolute() ซ้ำ เพื่อไม่ให้การเดินหน้าโดนรีเซ็ต
             
-            # ปรับศูนย์ X, Z ตามกล้องล่าสุด (แก้ศูนย์ให้ตรงปุ่มเสมอ)
+            # เราจะทำแค่ "เลื่อนจุดหมายปลายทาง" (Target Pos) ของแกน X (ซ้าย/ขวา) และ Z (ขึ้น/ลง)
+            adjust_rate = 1.0  # สเกลการขยับเป้า (ถ้ามันแก้แรงไปให้ลดลงเหลือ 0.5 หรือ 0.3)
+            
+            # ปรับเป้าแกน X (ซ้าย/ขวา)
             if self.current_pos[1] >= 0:
-                new_x = self.current_pos[0] + delta_x
+                self.target_pos[0] += delta_x * adjust_rate
             else:
-                new_x = self.current_pos[0] - delta_x
+                self.target_pos[0] -= delta_x * adjust_rate
                 
-            new_z = self.current_pos[2] + delta_z
+            # ปรับเป้าแกน Z (ขึ้น/ลง)
+            self.target_pos[2] += delta_z * adjust_rate
             
-            # ส่งพิกัดใหม่ (ดัดทิศทาง X,Z แต่พุ่งหน้า Y ไปที่เป้าหมายเดิม)
-            self.move_to_absolute(new_x, target_y, new_z)
+            # 🟢 บอกให้กล้องส่งค่าเฟรมต่อไปมาได้เลย เพื่อชดเชยศูนย์อย่างต่อเนื่อง
+            self.pub_tracking_ready.publish(Bool(data=True))
             return
 
         # ==========================================
@@ -440,7 +443,7 @@ class Main_Processor(Node):
                         self.force_detected = False
                         
                         # ลดความเร็วลงเพื่อให้ขยับแก้ศูนย์ตามกล้องได้ทันและไม่กระชาก
-                        self.speed_mm_s = 20.0 
+                        self.speed_mm_s = 5.0 
                         
                         # คำนวณเป้าหมาย Y ที่ต้องพุ่งไป
                         push_dir = 1.0 if self.current_pos[1] >= 0 else -1.0
