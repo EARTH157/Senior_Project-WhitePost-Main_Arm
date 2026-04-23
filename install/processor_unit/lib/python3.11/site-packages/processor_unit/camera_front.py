@@ -25,7 +25,7 @@ class AprilTagFrontNode(Node):
         # ==========================================
         # 🔘 สวิตช์เปิด-ปิด ระบบ YOLO และเสียง
         # ==========================================
-        self.enable_yolo_audio = True  # ค่าเริ่มต้นคือ "เปิด" ทำงาน
+        self.enable_yolo_audio = False  # ค่าเริ่มต้นคือ "เปิด" ทำงาน
         self.sub_toggle_yolo = self.create_subscription(Bool, '/toggle_yolo_audio', self.cb_toggle_yolo, 10)
 
         # ==========================================

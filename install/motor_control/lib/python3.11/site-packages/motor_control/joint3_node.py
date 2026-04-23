@@ -353,11 +353,11 @@ class Joint3Driver(Node):
             # ==========================================
             # ⚙️ 2-POINT CALIBRATION FOR JOINT 3
             # ==========================================
-            P1_RAW = 338.0
+            P1_RAW = 356.0
             P1_ANG = 8.0
             
-            P2_RAW = 2300.0
-            P2_ANG = 180.0
+            P2_RAW = 1233.0
+            P2_ANG = 90.0
             
             # คำนวณความชันและองศาจริง
             slope = (P2_ANG - P1_ANG) / (P2_RAW - P1_RAW)

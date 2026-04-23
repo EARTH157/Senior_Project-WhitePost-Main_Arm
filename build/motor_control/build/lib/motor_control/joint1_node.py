@@ -348,8 +348,8 @@ class Joint1Driver(Node):
             # ⚙️ โค้ดคำนวณ Calibration ของคุณใส่ไว้ตรงนี้เหมือนเดิม!
             # (ด้านล่างนี้เป็นสูตรเดิมของ Joint 1)
             # ==========================================
-            RAW_AT_0_DEG  = 400   
-            RAW_AT_90_DEG = 1381.0
+            RAW_AT_0_DEG  = 517.0   
+            RAW_AT_90_DEG = 1261.0
                 
             slope = (90.0 - 0.0) / (RAW_AT_90_DEG - RAW_AT_0_DEG)
             real_angle = slope * (current_raw - RAW_AT_0_DEG) + 0.0
