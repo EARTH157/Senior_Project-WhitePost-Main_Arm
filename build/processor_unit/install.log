@@ -21,6 +21,10 @@
 /home/raspi-earth/project_ws/install/processor_unit/share/processor_unit/yolov8n.pt
 /home/raspi-earth/project_ws/install/processor_unit/share/processor_unit/elevator_btn_4_best.pt
 /home/raspi-earth/project_ws/install/processor_unit/share/processor_unit/elevator_door.pt
+/home/raspi-earth/project_ws/install/processor_unit/share/processor_unit/elevator_btn_4_best_ncnn_model/model.ncnn.bin
+/home/raspi-earth/project_ws/install/processor_unit/share/processor_unit/elevator_btn_4_best_ncnn_model/model.ncnn.param
+/home/raspi-earth/project_ws/install/processor_unit/share/processor_unit/elevator_btn_4_best_ncnn_model/metadata.yaml
+/home/raspi-earth/project_ws/install/processor_unit/share/processor_unit/elevator_btn_4_best_ncnn_model/model_ncnn.py
 /home/raspi-earth/project_ws/install/processor_unit/share/processor_unit/launch
 /home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages/processor_unit-0.0.0-py3.11.egg-info/dependency_links.txt
 /home/raspi-earth/project_ws/install/processor_unit/lib/python3.11/site-packages/processor_unit-0.0.0-py3.11.egg-info/zip-safe

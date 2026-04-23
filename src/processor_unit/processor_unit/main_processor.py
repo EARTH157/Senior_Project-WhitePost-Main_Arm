@@ -42,7 +42,7 @@ class Main_Processor(Node):
         self.step_total = 0
         self.step_current = 0
         self.delay_ticks = 0 
-        self.speed_homing_deg_s = 60.0
+        self.speed_homing_deg_s = 80.0
         
         self.homing_phase = 0       
         self.final_home_pos = None  
@@ -74,16 +74,16 @@ class Main_Processor(Node):
         self.tracking_kp_xy = 0.01 
         self.tracking_kp_depth = 0.01
         self.tracking_max_step = 10.0  
-        self.RADIUS_DEAD_ZONE = 20.0  
+        self.RADIUS_DEAD_ZONE = 10.0  
         self.lock_start_time = 0.0  
         
-        self.preset_x = 500.0
-        self.preset_y = 300.0  
-        self.preset_z = 550.0  
+        self.preset_x = 650.0
+        self.preset_y = 400.0  
+        self.preset_z = 650.0  
         
-        self.preset_back_x = -400.0 
-        self.preset_back_y = -300.0  
-        self.preset_back_z = 650.0
+        self.preset_back_x = -500.0 
+        self.preset_back_y = -500.0  
+        self.preset_back_z = 750.0
         
         self.sub_command = self.create_subscription(String, '/robot_command', self.cb_robot_command, 10)
         self.pub_command = self.create_publisher(String, '/robot_command', 10)

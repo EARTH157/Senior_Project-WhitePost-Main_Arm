@@ -31,10 +31,11 @@ class AprilTagBackNode(Node):
         # ==========================================
         # 🤖 โหลดโมเดล YOLO สำหรับจับคน
         # ==========================================
-        self.get_logger().info("⏳ กำลังโหลดโมเดล YOLOv8n (BACK)...")
-        # 🟢 เปลี่ยน Path โมเดลให้ตรงกับเครื่องของคุณ
-        self.yolo_model = YOLO('/home/raspi-earth/project_ws/src/processor_unit/processor_unit/yolov8n.pt') 
-        self.get_logger().info("✅ โหลดโมเดล YOLO สำเร็จ!")
+        if self.enable_yolo_audio:
+            self.get_logger().info("⏳ กำลังโหลดโมเดล YOLOv8n (BACK)...")
+            # 🟢 เปลี่ยน Path โมเดลให้ตรงกับเครื่องของคุณ
+            self.yolo_model = YOLO('/home/raspi-earth/project_ws/src/processor_unit/processor_unit/yolov8n.pt') 
+            self.get_logger().info("✅ โหลดโมเดล YOLO สำเร็จ!")
 
         # ==========================================
         # 🎯 ตั้งค่าระบบตรวจจับ AprilTag
@@ -60,7 +61,7 @@ class AprilTagBackNode(Node):
         # ==========================================
         # 🗣️ ตั้งค่าระบบเสียงขอความช่วยเหลือ
         # ==========================================
-        self.audio_file_help = "/home/raspi-earth/Desktop/code_for_test/mp3test/output.wav" # 🟢 เปลี่ยน Path เสียงให้ถูกต้อง
+        self.audio_file_help = "/home/raspi-earth/project_ws/src/processor_unit/processor_unit/help_press.wav" # 🟢 เปลี่ยน Path เสียงให้ถูกต้อง
         self.last_audio_time = 0.0
         self.audio_cooldown = 10.0 # หน่วงเวลาพูด 10 วินาที
         
@@ -86,11 +87,11 @@ class AprilTagBackNode(Node):
     # --------------------------------------------------
     def cb_active(self, msg):
         command = msg.data.strip().lower()
-        if command == "start":
+        if command in ["back", "start_back", "preset_back"]:
             if not self.is_active:
                 self.is_active = True
                 self.get_logger().info("🚀 [BACK] Camera Active (Started)")
-        elif command in ["none", "off", "stop"]:
+        elif command in ["none", "off", "stop", "front"]:
             if self.is_active:
                 self.is_active = False
                 if not self.simulation_mode and hasattr(self, 'cap'):
@@ -195,8 +196,8 @@ class AprilTagBackNode(Node):
         if not self.camera_ready:
             self.cap = cv2.VideoCapture(self.camera_index, cv2.CAP_V4L2)
             if self.cap.isOpened():
-                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
+                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
                 self.camera_ready = True
             else:
                 self.get_logger().warn("🚨 Camera Disconnected!")

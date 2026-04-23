@@ -1,5 +1,5 @@
 import os
-from glob import glob # อย่าลืม import glob เพิ่มที่ด้านบน
+from glob import glob
 from setuptools import find_packages, setup
 
 package_name = 'processor_unit'
@@ -13,23 +13,26 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         
-        # 🚩 เพิ่มบรรทัดนี้ เพื่อติดตั้งไฟล์ .pt ไว้ในโฟลเดอร์ share ของแพ็กเกจ
+        # 🚩 1. ติดตั้งไฟล์ .pt (ใช้แบบเดิมได้)
         (os.path.join('share', package_name), glob('processor_unit/*.pt')),
         
-        # ถ้ามีไฟล์ launch ก็ใส่ไปด้วย (ถ้ายังไม่มีก็ข้ามไปครับ)
+        # 🚩 2. ติดตั้งไฟล์ในโฟลเดอร์ NCNN (แก้ให้เจาะจงเพื่อเลี่ยง __pycache__)
+        (os.path.join('share', package_name, 'elevator_btn_4_best_ncnn_model'), 
+         glob('processor_unit/elevator_btn_4_best_ncnn_model/*.bin') + 
+         glob('processor_unit/elevator_btn_4_best_ncnn_model/*.param') + 
+         glob('processor_unit/elevator_btn_4_best_ncnn_model/*.yaml') + 
+         glob('processor_unit/elevator_btn_4_best_ncnn_model/*.py')), # เผื่อมีไฟล์ python ในนั้น
+
+        # 3. ติดตั้งไฟล์ launch
         (os.path.join('share', package_name, 'launch'), glob('launch/*.py')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='raspi-earth',
     maintainer_email='raspi-earth@todo.todo',
-    description='TODO: Package description',
+    description='Senior Project: WhitePost - Processor Unit',
     license='Apache-2.0',
-    extras_require={
-        'test': [
-            'pytest',
-        ],
-    },
+    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'main_processor = processor_unit.main_processor:main',

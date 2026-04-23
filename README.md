@@ -315,6 +315,3 @@ screen /dev/ttyUSB0 115200
 source venv/bin/activate
 python step1_rrtstar_drive_650610830.py --tracker stanley --rejoin-dist 0.25 --lookahead 0.22 --vmax 0.12 --path-mode mesh3d --path-width-m 0.02 --path-thickness 0.002 --path-z 0.00005 --path-color 0,0,0 --face-now --face-mode tangent --show
 ```
-
-/dev/v4l/by-path/platform-xhci-hcd.0-usb-0:1:1.0-video-index0
-/dev/v4l/by-path/platform-xhci-hcd.1-usb-0:1:1.0-video-index0

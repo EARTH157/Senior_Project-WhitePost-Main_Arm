@@ -31,9 +31,10 @@ class AprilTagFrontNode(Node):
         # ==========================================
         # 🤖 โหลดโมเดล YOLO สำหรับจับคน
         # ==========================================
-        self.get_logger().info("⏳ กำลังโหลดโมเดล YOLOv8n...")
-        self.yolo_model = YOLO('/home/raspi-earth/project_ws/src/processor_unit/processor_unit/yolov8n.pt')
-        self.get_logger().info("✅ โหลดโมเดล YOLO สำเร็จ!")
+        if self.enable_yolo_audio:
+            self.get_logger().info("⏳ กำลังโหลดโมเดล YOLOv8n...")
+            self.yolo_model = YOLO('/home/raspi-earth/project_ws/src/processor_unit/processor_unit/yolov8n.pt')
+            self.get_logger().info("✅ โหลดโมเดล YOLO สำเร็จ!")
         
         # ==========================================
         # 🎯 ตั้งค่าระบบตรวจจับ AprilTag
@@ -46,7 +47,7 @@ class AprilTagFrontNode(Node):
         else:
             self.detector = None 
 
-        self.door_closed_dist_px = 300.0 
+        self.door_closed_dist_px = 50.0
         self.margin_px = 50.0
         
         self.pub_door_status = self.create_publisher(Bool, '/elevator_door_status', 10)
@@ -61,7 +62,7 @@ class AprilTagFrontNode(Node):
         # ==========================================
         self.audio_file_help = "/home/raspi-earth/project_ws/src/processor_unit/processor_unit/help_way.wav"
         self.last_audio_time = 0.0
-        self.audio_cooldown = 10.0 # หน่วงเวลาพูด 10 วินาที
+        self.audio_cooldown = 5.0 # หน่วงเวลาพูด 10 วินาที
         
         self.frame_count = 0
 
@@ -190,8 +191,8 @@ class AprilTagFrontNode(Node):
         if not self.camera_ready:
             self.cap = cv2.VideoCapture(self.camera_index, cv2.CAP_V4L2)
             if self.cap.isOpened():
-                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
+                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
                 self.camera_ready = True
             else:
                 self.get_logger().warn("🚨 Camera Disconnected!")
