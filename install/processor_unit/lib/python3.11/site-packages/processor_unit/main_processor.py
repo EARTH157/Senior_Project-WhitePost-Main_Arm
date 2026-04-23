@@ -205,8 +205,8 @@ class Main_Processor(Node):
         self.target_joints = target_start_joints
         self.start_joints = list(self.current_joints)
         max_diff = max([abs(t - s) for t, s in zip(self.target_joints, self.start_joints)])
-        duration = max_diff / 30.0 
-        if duration < 2.0: duration = 2.0 
+        duration = max_diff / self.speed_joint_deg_s 
+        if duration < 0.5: duration = 0.5
         self.step_total = int(duration / self.timer_period)
         if self.step_total == 0: self.step_total = 1
         self.step_current = 0
@@ -235,8 +235,8 @@ class Main_Processor(Node):
         
         max_angle_diff = max([abs(t - c) for t, c in zip(self.target_joints, self.current_joints)])
         duration = max_angle_diff / self.speed_joint_deg_s
-        if duration < 1.5: 
-            duration = 1.5 
+        if duration < 0.5: 
+            duration = 0.5 
             
         self.step_total = int(duration / self.timer_period)
         if self.step_total == 0: self.step_total = 1
@@ -256,8 +256,8 @@ class Main_Processor(Node):
         self.target_joints = target_start_joints
         self.start_joints = list(self.current_joints)
         max_diff = max([abs(t - s) for t, s in zip(self.target_joints, self.start_joints)])
-        duration = max_diff / 30.0 
-        if duration < 2.0: duration = 2.0 
+        duration = max_diff / self.speed_joint_deg_s 
+        if duration < 0.5: duration = 0.5
         self.step_total = int(duration / self.timer_period)
         if self.step_total == 0: self.step_total = 1
         self.step_current = 0
@@ -286,8 +286,8 @@ class Main_Processor(Node):
         
         max_angle_diff = max([abs(t - c) for t, c in zip(self.target_joints, self.current_joints)])
         duration = max_angle_diff / self.speed_joint_deg_s
-        if duration < 1.5: 
-            duration = 1.5 
+        if duration < 0.5: 
+            duration = 0.5 
             
         self.step_total = int(duration / self.timer_period)
         if self.step_total == 0: self.step_total = 1
@@ -905,7 +905,7 @@ class Main_Processor(Node):
             
             # 🎯 ระยะสายจูง: ถ้ายอมให้ฮาร์ดแวร์ตามหลังได้ไม่เกิน 3.0 องศา
             # ถ้ามอเตอร์ตามหลังเกิน 3 องศา ซอฟต์แวร์จะไม่บวก step ไปข้างหน้า (หยุดรอ)
-            if max_lag > 1.0: 
+            if max_lag > 3.0: 
                 # ส่งพิกัดย่อยตัวเดิมซ้ำไปก่อน ให้มอเตอร์ตามให้ทัน
                 self.publish_joints(self.current_interp_joints)
                 return 
