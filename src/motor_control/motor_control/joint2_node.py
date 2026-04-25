@@ -19,7 +19,7 @@ PIN_LIMIT = 24
 ENA_ACTIVE_HIGH = False 
 
 # PID Parameters
-KP = 0.8   # เพิ่มเพื่อให้ตอบสนองแรงขึ้น (เดิม 0.50)
+KP = 1.1   # เพิ่มเพื่อให้ตอบสนองแรงขึ้น (เดิม 0.50)
 KI = 0.20   # ลดลงก่อน กันการแกว่งสะสม (เดิม 0.39)
 KD = 0.01   # เพิ่มแรงต้านการแกว่ง (เดิม 0.01)   
 
@@ -268,17 +268,19 @@ class Joint2Driver(Node):
             time.sleep(0.01) # รันที่ประมาณ 50Hz (ทุกๆ 20ms)
             
             # 🚨 [SAFETY E-STOP] ถ้าไม่ได้รับค่าเซ็นเซอร์เกิน 0.5 วินาที
-            if self.latest_raw_sensor_val is None:
-                # 🟢 ถ้าระบบเพิ่งรันและยังไม่เคยได้ค่าแรกเลย ให้รอไปก่อน (ให้เวลา ESP32 บูท)
-                self.last_sensor_rx_time = time.time() 
-            elif time.time() - self.last_sensor_rx_time > 0.5:
-                if self.is_homed:
-                    self.get_logger().error("🚨 SENSOR TIMEOUT! ล็อคมอเตอร์ฉุกเฉินและแข็งค้าง!", throttle_duration_sec=1.0)
-                self.target_hz = 0.0
-                self.current_hz = 0.0
-                self.is_homed = False # ยกเลิกสถานะเพื่อไม่รับคำสั่งขยับต่อ
-                self.sensor_timeout = True # 🟢 เพิ่มบรรทัดนี้! เพื่อบอกระบบว่าสายหลุด จะได้รอ Auto-Resume
-                continue
+            # In pid_worker(), replace the sensor timeout block with:
+            if not getattr(self, 'is_homing_active', False):
+                if self.latest_raw_sensor_val is None:
+                    self.last_sensor_rx_time = time.time()
+                elif time.time() - self.last_sensor_rx_time > 0.5:
+                    if self.is_homed:
+                        self.get_logger().error("🚨 SENSOR TIMEOUT!", throttle_duration_sec=1.0)
+                    self.target_hz = 0.0        # ← now INSIDE the guard ✅
+                    self.current_hz = 0.0       # ✅
+                    self.is_homed = False       # ✅
+                    self.sensor_timeout = True  # ✅
+                    continue        
+            # If is_homing_active is True, skip ALL of the above entirely
 
             if not self.is_homed or self.current_target is None or self.sensor_timeout:
                 self.target_hz = 0.0
@@ -355,8 +357,8 @@ class Joint2Driver(Node):
             # ⚙️ 2-POINT CALIBRATION (Linear)
             # ==========================================
             # อ้างอิงแค่ 2 จุดที่มั่นใจ
-            P2_RAW = 1640.0  # จุดที่ 90 องศา
-            P3_RAW = 2951.0  # จุดที่ 180 องศา (Limit Switch)
+            P2_RAW = 1800.0  # จุดที่ 90 องศา
+            P3_RAW = 2980.0  # จุดที่ 180 องศา (Limit Switch)
             
             P2_ANG = 90.0
             P3_ANG = 180.0
@@ -434,7 +436,8 @@ class Joint2Driver(Node):
         val = self.read_as5600()
         
         # 🔓 ปลดล็อกเงื่อนไข: บังคับให้ Homing สำเร็จไปเลย!
-        self.zero_offset = 0.0
+        raw_at_home = self.latest_raw_sensor_val  # e.g. reads 2951
+        self.zero_offset = val - 180.0
         self.is_homed = True
         self.current_target = 180.0
         
@@ -442,9 +445,11 @@ class Joint2Driver(Node):
             current_check = self.get_calibrated_angle()
             self.get_logger().info(f"✅ Homing Done. Sensor reads: {current_check:.2f}° (Should be approx 180°)")
         else:
-            self.get_logger().warn("⚠️ อ่านค่าจังหวะสุดท้ายไม่ทัน แต่ปลดล็อกบังคับผ่านแล้ว!")
+            self.get_logger().warn("⚠️ Could not read sensor at home — offset defaulting to 0!")
             
         self.get_logger().info("🚀 Holding Position at 180.0°")
+        self.last_sensor_rx_time = time.time()  # ✅ reset watchdog after homing
+        self.last_known_good_raw = self.latest_raw_sensor_val  # ✅ sync reference point
 
     def enable_motor(self, enable):
         GPIO.output(PIN_ENA, GPIO.HIGH if enable == ENA_ACTIVE_HIGH else GPIO.LOW)
@@ -471,9 +476,17 @@ class Joint2Driver(Node):
 def main():
     rclpy.init()
     node = Joint2Driver()
-    try: rclpy.spin(node)
-    except KeyboardInterrupt: pass
-    node.destroy_node()
-    rclpy.shutdown()
+    try:
+        rclpy.spin(node)
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+    finally:
+        if node:
+            node.destroy_node()
+        # Guard against double-shutdown
+        try:
+            rclpy.shutdown()
+        except Exception:
+            pass
 
 if __name__ == '__main__': main()

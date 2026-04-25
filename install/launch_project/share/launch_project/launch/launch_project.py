@@ -1,6 +1,6 @@
 import launch
 import launch_ros.actions
-from launch.actions import TimerAction
+from launch.actions import TimerAction, ExecuteProcess  # ✅ Add ExecuteProcess here
 from launch_ros.actions import Node
 
 def generate_launch_description():
@@ -21,8 +21,6 @@ def generate_launch_description():
             package='processor_unit', executable='steam_cam', output='screen',
             parameters=[{'simulation_mode': False}]
         ),
-
-        # ✅ Add simulation_mode to camera nodes
         Node(
             package='processor_unit', executable='camera_front', output='screen',
             parameters=[{'simulation_mode': False}]
@@ -32,20 +30,15 @@ def generate_launch_description():
             parameters=[{'simulation_mode': False}]
         ),
 
-        # ✅ Auto-send calibrate command 5 seconds after launch
-        # giving ESP32 and joints time to boot first
         TimerAction(
             period=5.0,
             actions=[
-                launch_ros.actions.Node(
-                    package='ros2topic',
-                    executable='pub',
-                    arguments=[
-                        '--once',
-                        '/robot_command',
-                        'std_msgs/msg/String',
-                        '{data: calibrate}'
-                    ]
+                ExecuteProcess(
+                    cmd=['ros2', 'topic', 'pub', '--once',
+                         '/robot_command',
+                         'std_msgs/msg/String',
+                         '{data: calibrate}'],
+                    output='screen'
                 )
             ]
         ),

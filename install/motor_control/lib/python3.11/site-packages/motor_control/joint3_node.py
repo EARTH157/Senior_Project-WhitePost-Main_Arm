@@ -267,17 +267,19 @@ class Joint3Driver(Node):
             time.sleep(0.01) # รันที่ประมาณ 50Hz (ทุกๆ 20ms)
             
             # 🚨 [SAFETY E-STOP] ถ้าไม่ได้รับค่าเซ็นเซอร์เกิน 0.5 วินาที
-            if self.latest_raw_sensor_val is None:
-                # 🟢 ถ้าระบบเพิ่งรันและยังไม่เคยได้ค่าแรกเลย ให้รอไปก่อน (ให้เวลา ESP32 บูท)
-                self.last_sensor_rx_time = time.time() 
-            elif time.time() - self.last_sensor_rx_time > 0.5:
-                if self.is_homed:
-                    self.get_logger().error("🚨 SENSOR TIMEOUT! ล็อคมอเตอร์ฉุกเฉินและแข็งค้าง!", throttle_duration_sec=1.0)
-                self.target_hz = 0.0
-                self.current_hz = 0.0
-                self.is_homed = False # ยกเลิกสถานะเพื่อไม่รับคำสั่งขยับต่อ
-                self.sensor_timeout = True # 🟢 เพิ่มบรรทัดนี้! เพื่อบอกระบบว่าสายหลุด จะได้รอ Auto-Resume
-                continue
+            # In pid_worker(), replace the sensor timeout block with:
+            if not getattr(self, 'is_homing_active', False):
+                if self.latest_raw_sensor_val is None:
+                    self.last_sensor_rx_time = time.time()
+                elif time.time() - self.last_sensor_rx_time > 0.5:
+                    if self.is_homed:
+                        self.get_logger().error("🚨 SENSOR TIMEOUT!", throttle_duration_sec=1.0)
+                    self.target_hz = 0.0        # ← now INSIDE the guard ✅
+                    self.current_hz = 0.0       # ✅
+                    self.is_homed = False       # ✅
+                    self.sensor_timeout = True  # ✅
+                    continue        
+            # If is_homing_active is True, skip ALL of the above entirely
 
             # 🟢 ถ้ายังไม่ได้ Calibrate หรือเป้าหมายไม่มี หรือกำลังติด Timeout ให้หยุดมอเตอร์
             if not self.is_homed or self.current_target is None or self.sensor_timeout:
@@ -353,7 +355,7 @@ class Joint3Driver(Node):
             # ==========================================
             # ⚙️ 2-POINT CALIBRATION FOR JOINT 3
             # ==========================================
-            P1_RAW = 356.0
+            P1_RAW = 365.0
             P1_ANG = 8.0
             
             P2_RAW = 2227.0
@@ -413,7 +415,7 @@ class Joint3Driver(Node):
         val = self.read_as5600()
         
         # 🔓 ปลดล็อกเงื่อนไข: บังคับให้ Homing สำเร็จไปเลย!
-        self.zero_offset = 0.0
+        self.zero_offset = val - 8.0
         self.is_homed = True
         self.current_target = 8.0
         
@@ -421,9 +423,11 @@ class Joint3Driver(Node):
             current_check = self.get_calibrated_angle()
             self.get_logger().info(f"✅ Homing Done. Sensor reads: {current_check:.2f}° (Should be approx 180°)")
         else:
-            self.get_logger().warn("⚠️ อ่านค่าจังหวะสุดท้ายไม่ทัน แต่ปลดล็อกบังคับผ่านแล้ว!")
+            self.get_logger().warn("⚠️ Could not read sensor at home — offset defaulting to 0!")
             
         self.get_logger().info("🚀 Holding Position at 8.0°")
+        self.last_sensor_rx_time = time.time()  # ✅ reset watchdog after homing
+        self.last_known_good_raw = self.latest_raw_sensor_val  # ✅ sync reference point
 
     def enable_motor(self, enable):
         GPIO.output(PIN_ENA, GPIO.HIGH if enable == ENA_ACTIVE_HIGH else GPIO.LOW)
@@ -450,9 +454,17 @@ class Joint3Driver(Node):
 def main():
     rclpy.init()
     node = Joint3Driver()
-    try: rclpy.spin(node)
-    except KeyboardInterrupt: pass
-    node.destroy_node()
-    rclpy.shutdown()
+    try:
+        rclpy.spin(node)
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+    finally:
+        if node:
+            node.destroy_node()
+        # Guard against double-shutdown
+        try:
+            rclpy.shutdown()
+        except Exception:
+            pass
 
 if __name__ == '__main__': main()

@@ -192,6 +192,12 @@ class Main_Processor(Node):
         self.is_moving = False
         self.is_tracking_mode = False
         self.press_sequence_state = 'IDLE'
+        
+        # ✅ ตั้ง Joint 4 = 180° ระหว่าง Calibrate
+        safe_servo = Float32MultiArray()
+        safe_servo.data = [0.0, 0.0, 180.0, 0.0, 90.0]  # index 2 = joint4
+        self.publisher_servo_.publish(safe_servo)
+        self.get_logger().info("🦾 Joint 4 → 180° (Calibration safe position)")
 
     def execute_go_start(self):
         self.post_move_action = None
@@ -1182,12 +1188,16 @@ def main(args=None):
 
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
-        node.force_go_home_before_exit()
-        time.sleep(1.0)
+    except Exception as e:
+        print(f"Unexpected error: {e}")
     finally:
-        node.destroy_node()
-        rclpy.shutdown()
+        if node:
+            node.destroy_node()
+        # Guard against double-shutdown
+        try:
+            rclpy.shutdown()
+        except Exception:
+            pass
 
 if __name__ == '__main__':
     main()

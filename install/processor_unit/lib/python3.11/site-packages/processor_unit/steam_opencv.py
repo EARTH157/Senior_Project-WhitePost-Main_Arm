@@ -77,7 +77,7 @@ class SocketTrackerNode(Node):
         self.SMOOTH_FACTOR = 0.2
         self.target_label = "none"
         self.frame_counter = 0
-        self.SKIP_FRAMES = 2 if not self.simulation_mode else 0 
+        self.SKIP_FRAMES = 1 if not self.simulation_mode else 0 
         self.TARGET_RADIUS = 60      
         self.RADIUS_DEAD_ZONE = 10   
         self.waiting_for_robot = False
@@ -433,12 +433,17 @@ def main(args=None):
     rclpy.init(args=args)
     node = SocketTrackerNode()
     try:
-        rclpy.spin(node)   # ✅ replaces node.run_loop()
-    except KeyboardInterrupt:
-        pass
+        node.run_loop()
+    except Exception as e:
+        print(f"Unexpected error: {e}")
     finally:
-        node.destroy_node()
-        rclpy.shutdown()
+        if node:
+            node.destroy_node()
+        # Guard against double-shutdown
+        try:
+            rclpy.shutdown()
+        except Exception:
+            pass
 
 if __name__ == '__main__':
     main()

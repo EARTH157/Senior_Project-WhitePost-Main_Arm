@@ -104,8 +104,8 @@ class ESP32BridgeNode(Node):
                     self.pub_raw_j1.publish(Float32(data=float(angles[self.MUX_CH_J1])))
                     self.pub_raw_j2.publish(Float32(data=float(angles[self.MUX_CH_J2])))
                     self.pub_raw_j3.publish(Float32(data=float(angles[self.MUX_CH_J3])))
-        except:
-            pass
+        except Exception as e:
+            self.get_logger().warn(f"Serial read error: {e}", throttle_duration_sec=5.0)
 
     def cb_set_servo(self, msg):
         data = msg.data
@@ -125,10 +125,16 @@ def main(args=None):
     rclpy.init(args=args)
     node = ESP32BridgeNode()
     try: rclpy.spin(node)
-    except KeyboardInterrupt: pass
+    except Exception as e:
+        print(f"Unexpected error: {e}")
     finally:
-        node.destroy_node()
-        rclpy.shutdown()
+        if node:
+            node.destroy_node()
+        # Guard against double-shutdown
+        try:
+            rclpy.shutdown()
+        except Exception:
+            pass
 
 if __name__ == '__main__':
     main()
