@@ -72,7 +72,7 @@ class Main_Processor(Node):
         # --- ตัวแปรสำหรับระบบ Camera Tracking ---
         self.is_tracking_mode = False  
         self.tracking_kp_xy = 0.01 
-        self.tracking_kp_depth = 0.01
+        self.tracking_kp_depth = 0.01 
         self.tracking_max_step = 10.0  
         self.RADIUS_DEAD_ZONE = 10.0  
         self.lock_start_time = 0.0  

@@ -432,9 +432,13 @@ class SocketTrackerNode(Node):
 def main(args=None):
     rclpy.init(args=args)
     node = SocketTrackerNode()
-    node.run_loop() 
-    node.destroy_node()
-    rclpy.shutdown()
+    try:
+        rclpy.spin(node)   # ✅ replaces node.run_loop()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
 
 if __name__ == '__main__':
     main()

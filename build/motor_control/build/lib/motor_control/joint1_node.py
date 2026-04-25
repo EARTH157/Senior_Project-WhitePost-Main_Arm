@@ -64,10 +64,10 @@ class Joint1Driver(Node):
         self.create_subscription(Float32, '/sensor/as5600/joint1', self.raw_sensor_callback, 10)
 
         # ROS Setup
-        self.create_subscription(Float32, 'joint1/set_target_angle', self.target_callback, 10)
-        self.create_subscription(Bool, 'joint1/calibrate', self.calibrate_callback, 10)
-        self.angle_pub = self.create_publisher(Float32, 'joint1/angle', 10)
-        self.calibration_pub = self.create_publisher(Bool, 'joint1/calibrated', 10)
+        self.create_subscription(Float32, '/joint1/set_target_angle', self.target_callback, 10)
+        self.create_subscription(Bool, '/joint1/calibrate', self.calibrate_callback, 10)
+        self.angle_pub = self.create_publisher(Float32, '/joint1/angle', 10)
+        self.calibration_pub = self.create_publisher(Bool, '/joint1/calibrated', 10)
         self.create_timer(0.5, self.report_status)
 
         # -----------------------------------------------------
@@ -254,7 +254,7 @@ class Joint1Driver(Node):
         # --- ปรับจูนใหม่สำหรับ TB6600 (Microstep 1/8 หรือ 1600 Pulse/Rev) ---
         MAX_HZ = 6000.0       # ⬆️ เพิ่มความเร็วสูงสุด (2000 Hz = วิ่งประมาณ 1.2 รอบ/วินาที)
         MIN_HZ = 50.0        # ⬆️ เพิ่มความเร็วต่ำสุด เลี้ยงรอบไว้ไม่ให้หยุดกระชาก
-        ACCEL_RATE = 800.0    # ⬆️ เพิ่มอัตราเร่ง ให้ขยับเข้าหาเป้าหมายสมูทๆ
+        ACCEL_RATE = 400.0    # ⬆️ เพิ่มอัตราเร่ง ให้ขยับเข้าหาเป้าหมายสมูทๆ
         SPEED_MULTIPLIER = 80.0 # ⬆️ เพิ่มตัวคูณให้ PID ตอบสนองไวขึ้น
         
         while self.running and rclpy.ok():
@@ -349,7 +349,7 @@ class Joint1Driver(Node):
             # (ด้านล่างนี้เป็นสูตรเดิมของ Joint 1)
             # ==========================================
             RAW_AT_0_DEG  = 517.0   
-            RAW_AT_90_DEG = 1261.0
+            RAW_AT_90_DEG = 1220.0  
                 
             slope = (90.0 - 0.0) / (RAW_AT_90_DEG - RAW_AT_0_DEG)
             real_angle = slope * (current_raw - RAW_AT_0_DEG) + 0.0
