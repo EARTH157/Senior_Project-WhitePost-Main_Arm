@@ -342,13 +342,27 @@ class Main_Processor(Node):
         # 📌 ท่า Home สุดท้าย (J1=90, J2=180, J3=8, J4=90, J5=90)
         home_joints = [90.0, 180.0, 8.0, 90.0, 90.0] 
 
-        home_joints = [90.0, 180.0, 8.0, 90.0, 90.0] 
+        # 🟢 โค้ดส่วนที่หายไป คืนชีพกลับมาแล้ว!
+        if self.current_joints is None:
+            target_xyz = self.calculate_forward_kinematics(home_joints[0], home_joints[1], home_joints[2])
+            self.publish_joints(home_joints)
+            self.current_joints = home_joints
+            self.current_pos = target_xyz
+            return
+            
+        self.final_home_pos = self.calculate_forward_kinematics(home_joints[0], home_joints[1], home_joints[2])
+        self.homing_phase = 1
+        self.move_mode = 'JOINT'
+        self.start_joints = list(self.current_joints)
+        
+        # 📌 เฟส 1: J1 ค้างไว้, J2->90, J3->8
+        self.target_joints = [self.current_joints[0], 90.0, 8.0, 90.0, 90.0]
+
         # ==========================================
         # 🟢 โยนภาระให้ PID มอเตอร์จัดการเร่ง/เบรกเอง!
         # ==========================================
         self.step_total = 1
         self.step_current = 0
-        self.is_moving = True
         self.is_moving = True
             
     def cb_target_error(self, msg):
