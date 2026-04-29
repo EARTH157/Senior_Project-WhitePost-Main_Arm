@@ -20,9 +20,9 @@ PIN_LIMIT = 23
 ENA_ACTIVE_HIGH = False 
 
 # PID Parameters
-KP = 0.9
-KI = 0.8
-KD = 0.01    
+KP = 1.5    # 🟢 เพิ่ม P ให้พุ่งเข้าหาเป้าอย่างรวดเร็ว (เดิม 0.8)
+KI = 0.01   # 🟢 ลด I ลงมหาศาล เพื่อป้องกันการสะสมพลังงานจนทะลุเป้า (เดิม 0.20)
+KD = 0.08   # 🟢 เพิ่ม D ให้ทำหน้าที่เป็น "เบรก" ตอนใกล้ถึงเป้าหมาย (เดิม 0.01)   
 
 # Speed Settings
 PULSE_WIDTH = 0.00005
@@ -206,6 +206,9 @@ class Joint1Driver(Node):
         if not self.is_homed:
             self.get_logger().warn("⚠️ Ignoring target: Need Calibration first!")
             return
+        
+        if self.current_target is not None and abs(self.current_target - msg.data) < 0.1:
+            return
             
         self.current_target = msg.data
         #self.get_logger().info(f"🎯 Target Updated: {self.current_target:.2f}")
@@ -260,7 +263,7 @@ class Joint1Driver(Node):
         MAX_HZ = 5000.0       # ⬆️ เพิ่มความเร็วสูงสุด (2000 Hz = วิ่งประมาณ 1.2 รอบ/วินาที)
         MIN_HZ = 50.0        # ⬆️ เพิ่มความเร็วต่ำสุด เลี้ยงรอบไว้ไม่ให้หยุดกระชาก
         ACCEL_RATE = 400.0    # ⬆️ เพิ่มอัตราเร่ง ให้ขยับเข้าหาเป้าหมายสมูทๆ
-        SPEED_MULTIPLIER = 100.0 # ⬆️ เพิ่มตัวคูณให้ PID ตอบสนองไวขึ้น
+        SPEED_MULTIPLIER = 80.0 # ⬆️ เพิ่มตัวคูณให้ PID ตอบสนองไวขึ้น
         
         while self.running and rclpy.ok():
             time.sleep(0.01) # รันที่ประมาณ 50Hz (ทุกๆ 20ms)
@@ -303,12 +306,24 @@ class Joint1Driver(Node):
                     if self.current_hz < 0: self.current_hz = 0.0
                 continue 
 
-            # PID Logic
+            # ==========================================
+            # 🧠 PID Logic & Anti-Windup
+            # ==========================================
             now = time.time()
             dt = now - self.last_pid_time
-            if dt <= 0: dt = 0.02
+            if dt <= 0: dt = 0.01
 
+            # 🛡️ Anti-Windup 1: ถ้าย้ายฝั่ง (ข้ามเป้าหมาย) ให้ล้างพลังงานสะสมทิ้งทันที!
+            if (error > 0 and self.prev_error < 0) or (error < 0 and self.prev_error > 0):
+                self.integral = 0.0
+                
             self.integral += error * dt
+            
+            # 🛡️ Anti-Windup 2: จำกัดเพดานพลังงานสะสม ไม่ให้สปริงแข็งเกินไป
+            LIMIT_I = 20.0
+            if self.integral > LIMIT_I: self.integral = LIMIT_I
+            if self.integral < -LIMIT_I: self.integral = -LIMIT_I
+
             derivative = (error - self.prev_error) / dt
             pid_output = (KP * error) + (KI * self.integral) + (KD * derivative)
             
@@ -321,9 +336,19 @@ class Joint1Driver(Node):
             # แปลง PID Output เป็นเป้าหมายความถี่ (Target Hz)
             speed_mag = abs(pid_output)
             mapped_hz = MIN_HZ + (speed_mag * SPEED_MULTIPLIER) 
-            if mapped_hz > MAX_HZ: mapped_hz = MAX_HZ
+            
+            # 🏎️ 🛡️ DYNAMIC BRAKE (ระบบเบรก ABS):
+            # ถ้าใกล้ถึงเป้าหมาย (เหลือน้อยกว่า 3 องศา) บังคับลดความเร็วสูงสุดลงตามระยะทาง!
+            if abs(error) < 3.0:
+                dynamic_max_hz = MAX_HZ * (abs(error) / 3.0) 
+                if dynamic_max_hz < MIN_HZ * 1.5: dynamic_max_hz = MIN_HZ * 1.5
+                if mapped_hz > dynamic_max_hz: mapped_hz = dynamic_max_hz
+            elif mapped_hz > MAX_HZ: 
+                mapped_hz = MAX_HZ
             
             self.target_hz = mapped_hz
+
+            # 🚀 ทำ Acceleration Ramp ... (โค้ดเดิมที่เหลือ)
 
             # 🚀 ทำ Acceleration Ramp: ปรับความเร็วปัจจุบันให้เข้าหาเป้าหมายอย่างนุ่มนวล
             if self.current_hz < self.target_hz:

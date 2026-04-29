@@ -343,23 +343,12 @@ class Main_Processor(Node):
         home_joints = [90.0, 180.0, 8.0, 90.0, 90.0] 
 
         home_joints = [90.0, 180.0, 8.0, 90.0, 90.0] 
-        if self.current_joints is None:
-            target_xyz = self.calculate_forward_kinematics(home_joints[0], home_joints[1], home_joints[2])
-            self.publish_joints(home_joints)
-            self.current_joints = home_joints
-            self.current_pos = target_xyz
-            return
-        self.final_home_pos = self.calculate_forward_kinematics(home_joints[0], home_joints[1], home_joints[2])
-        self.homing_phase = 1
-        self.move_mode = 'JOINT'
-        self.start_joints = list(self.current_joints)
-        self.target_joints = [self.current_joints[0], 90.0, 8.0, 90.0, 90.0]
-        max_diff = max([abs(tj - cj) for tj, cj in zip(self.target_joints, self.current_joints)])
-        duration = max_diff / self.speed_homing_deg_s  
-        if duration < 0.2: duration = 0.2
-        self.step_total = int(duration / self.timer_period)
-        if self.step_total == 0: self.step_total = 1
+        # ==========================================
+        # 🟢 โยนภาระให้ PID มอเตอร์จัดการเร่ง/เบรกเอง!
+        # ==========================================
+        self.step_total = 1
         self.step_current = 0
+        self.is_moving = True
         self.is_moving = True
             
     def cb_target_error(self, msg):
@@ -1001,78 +990,54 @@ class Main_Processor(Node):
 
         if t == 1.0:
             if self.homing_phase == 1:
-                # =========================================================
-                # 🟢 ด่านตรวจเฟส 1: ต้องรอให้ J2=90 และ J3=8 ให้เสร็จ "ครบทั้งคู่" ก่อน!
-                # =========================================================
-                curr_j2 = self.current_angles[2] if hasattr(self, 'current_angles') else None
-                curr_j3 = self.current_angles[3] if hasattr(self, 'current_angles') else None
+                # 🛑 ด่านตรวจ J2, J3: รอให้แขนพับหลบให้เสร็จก่อน!
+                curr_j2 = self.current_angles[2]
+                curr_j3 = self.current_angles[3]
                 
-                # เช็คว่ามอเตอร์ถึงเป้าหมายหรือยัง (ยอมให้คลาดเคลื่อนได้นิดหน่อยที่ 3 องศา)
-                wait_j2 = (curr_j2 is not None) and (abs(curr_j2 - 90.0) > 10.0)
-                wait_j3 = (curr_j3 is not None) and (abs(curr_j3 - 8.0) > 10.0)
-                
-                if wait_j2 or wait_j3:
-                    if self.step_current % 25 == 0: 
+                if curr_j2 is None or abs(curr_j2 - 90.0) > 5.0 or curr_j3 is None or abs(curr_j3 - 8.0) > 5.0:
+                    if self.step_current % 50 == 0:
                         j2_str = f"{curr_j2:.1f}" if curr_j2 else "N/A"
-                        j3_str = f"{curr_j3:.1f}" if curr_j3 else "N/A"
-                        #self.get_logger().info(f"⏳ รอฮาร์ดแวร์พับแขนให้เสร็จ... (เป้า J2:90 J3:8 | ปัจจุบัน J2:{j2_str} J3:{j3_str})")
-                    return # ⛔ เด้งออกไปก่อน ห้ามเข้าเฟส 2 เด็ดขาดจนกว่าจะพับเสร็จ
-                # =========================================================
+                        self.get_logger().info(f"⏳ รอแขนพับหลบ (เฟส 1)... (ปัจจุบัน J2:{j2_str}°)")
+                    return # เด้งออกไปก่อน ห้ามไปเฟส 2 จนกว่าจะพับเสร็จ
                 
                 self.get_logger().info("🏠 เฟส 1 เสร็จสิ้น! เริ่มเฟส 2 (หมุนฐาน J1 เข้า 90 องศา)")
                 self.homing_phase = 2
                 self.start_joints = list(self.current_joints)
                 
-                # 📌 เฟส 2: J1 หมุนไป 90, ข้อต่ออื่นๆ (รวมถึง J3 ที่ 8°) ค้างตำแหน่งเดิมไว้
-                self.target_joints = [
-                    90.0, 
-                    self.current_joints[1], 
-                    self.current_joints[2], 
-                    self.current_joints[3], 
-                    self.current_joints[4]
-                ]
-                
-                diff_j1 = abs(90.0 - self.current_joints[0])
-                duration = diff_j1 / self.speed_homing_deg_s
-                if duration < 0.3: duration = 0.3
-                
-                self.step_total = int(duration / self.timer_period)
-                if self.step_total == 0: self.step_total = 1
+                self.target_joints = [90.0, 90.0, 8.0, self.current_joints[3], self.current_joints[4]]
+                self.step_total = 1
                 self.step_current = 0 
-                return
+                return 
 
             elif self.homing_phase == 2:
-                curr_j1 = self.current_angles[1] if hasattr(self, 'current_angles') else None
-                if curr_j1 is not None and abs(curr_j1 - 90.0) > 2.0:
-                    if self.step_current % 25 == 0: 
-                        self.get_logger().info(f"⏳ กำลังรอ Joint 1 หมุนเข้าที่ 90°... (ปัจจุบัน: {curr_j1:.1f}°)")
+                # 🛑 ด่านตรวจ J1: รอให้ฐานหมุนเข้าที่
+                curr_j1 = self.current_angles[1]
+                
+                if curr_j1 is None or abs(curr_j1 - 90.0) > 3.0:
+                    if self.step_current % 50 == 0: 
+                        j1_str = f"{curr_j1:.1f}" if curr_j1 else "N/A"
+                        self.get_logger().info(f"⏳ กำลังรอ J1 หมุนเข้าที่... (ปัจจุบัน: {j1_str}°)")
                     return 
 
-                self.get_logger().info("🏠 เฟส 2 เสร็จสิ้น! เริ่มเฟส 3 (พับแขนเก็บ: J2->180°, J4->90°)")
+                self.get_logger().info("🏠 เฟส 2 เสร็จสิ้น! เริ่มเฟส 3 (ดัน Joint 2 ไปที่ 180 องศา)")
                 self.homing_phase = 3
                 self.start_joints = list(self.current_joints)
                 
-                # 📌 เฟส 3: J2 ไปที่ 180, ข้อต่ออื่นๆ ค้างตำแหน่งเดิมไว้
-                self.target_joints = [
-                    self.current_joints[0], 
-                    180.0, 
-                    self.current_joints[2], 
-                    self.current_joints[3], 
-                    self.current_joints[4]
-                ]
-                
-                diff_j2 = abs(180.0 - self.current_joints[1])
-                diff_j4 = abs(90.0 - self.current_joints[3])
-                max_diff = max(diff_j2, diff_j4) 
-                duration = diff_j2 / self.speed_homing_deg_s
-                if duration < 0.3: duration = 0.3 
-                
-                self.step_total = int(duration / self.timer_period)
-                if self.step_total == 0: self.step_total = 1
+                self.target_joints = [90.0, 180.0, 8.0, self.current_joints[3], self.current_joints[4]]
+                self.step_total = 1
                 self.step_current = 0 
                 return 
 
             elif self.homing_phase == 3:
+                # 🛑 ด่านตรวจ J2: รอให้ดันแขนเก็บสุด
+                curr_j2 = self.current_angles[2]
+                
+                if curr_j2 is None or abs(curr_j2 - 180.0) > 3.0:
+                    if self.step_current % 50 == 0: 
+                        j2_str = f"{curr_j2:.1f}" if curr_j2 else "N/A"
+                        self.get_logger().info(f"⏳ กำลังรอ J2 ดันเก็บสุด... (ปัจจุบัน: {j2_str}°)")
+                    return 
+
                 self.get_logger().info("✅ กลับถึงท่า Home เรียบร้อย! อัปเดตพิกัด XYZ พร้อมรับคำสั่งใหม่")
                 self.current_pos = list(self.final_home_pos) 
                 self.homing_phase = 0

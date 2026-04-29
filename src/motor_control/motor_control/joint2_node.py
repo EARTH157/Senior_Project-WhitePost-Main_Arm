@@ -20,9 +20,9 @@ PIN_LIMIT = 24
 ENA_ACTIVE_HIGH = False 
 
 # PID Parameters
-KP = 0.8   # เพิ่มเพื่อให้ตอบสนองแรงขึ้น (เดิม 0.50)
-KI = 0.20   # ลดลงก่อน กันการแกว่งสะสม (เดิม 0.39)
-KD = 0.01   # เพิ่มแรงต้านการแกว่ง (เดิม 0.01)   
+KP = 1.5    # 🟢 เพิ่ม P ให้พุ่งเข้าหาเป้าอย่างรวดเร็ว (เดิม 0.8)
+KI = 0.01   # 🟢 ลด I ลงมหาศาล เพื่อป้องกันการสะสมพลังงานจนทะลุเป้า (เดิม 0.20)
+KD = 0.08   # 🟢 เพิ่ม D ให้ทำหน้าที่เป็น "เบรก" ตอนใกล้ถึงเป้าหมาย (เดิม 0.01) 
 
 # Speed Settings
 # เพิ่ม Delay เพื่อให้หมุนช้าลง แต่แรงบิดจะเยอะขึ้น
@@ -220,6 +220,9 @@ class Joint2Driver(Node):
         
         if clamped_target != raw_target:
              self.get_logger().warn(f"⚠️ Target Out of Range ({raw_target}). Clamped to {clamped_target}")
+             
+        if self.current_target is not None and abs(self.current_target - msg.data) < 0.1:
+            return
 
         self.current_target = clamped_target
         #self.get_logger().info(f"🎯 Target Updated: {self.current_target:.2f}")
@@ -274,7 +277,7 @@ class Joint2Driver(Node):
         MAX_HZ = 5000.0       # ⬆️ เพิ่มความเร็วสูงสุด (2000 Hz = วิ่งประมาณ 1.2 รอบ/วินาที)
         MIN_HZ = 50.0        # ⬆️ เพิ่มความเร็วต่ำสุด เลี้ยงรอบไว้ไม่ให้หยุดกระชาก
         ACCEL_RATE = 400.0    # ⬆️ เพิ่มอัตราเร่ง ให้ขยับเข้าหาเป้าหมายสมูทๆ
-        SPEED_MULTIPLIER = 100.0 # ⬆️ เพิ่มตัวคูณให้ PID ตอบสนองไวขึ้น
+        SPEED_MULTIPLIER = 80.0 # ⬆️ เพิ่มตัวคูณให้ PID ตอบสนองไวขึ้น
         
         while self.running and rclpy.ok():
             time.sleep(0.01) # รันที่ประมาณ 50Hz (ทุกๆ 20ms)
@@ -316,12 +319,24 @@ class Joint2Driver(Node):
                     if self.current_hz < 0: self.current_hz = 0.0
                 continue 
 
-            # PID Logic
+            # ==========================================
+            # 🧠 PID Logic & Anti-Windup
+            # ==========================================
             now = time.time()
             dt = now - self.last_pid_time
-            if dt <= 0: dt = 0.02
+            if dt <= 0: dt = 0.01
 
+            # 🛡️ Anti-Windup 1: ถ้าย้ายฝั่ง (ข้ามเป้าหมาย) ให้ล้างพลังงานสะสมทิ้งทันที!
+            if (error > 0 and self.prev_error < 0) or (error < 0 and self.prev_error > 0):
+                self.integral = 0.0
+                
             self.integral += error * dt
+            
+            # 🛡️ Anti-Windup 2: จำกัดเพดานพลังงานสะสม ไม่ให้สปริงแข็งเกินไป
+            LIMIT_I = 20.0
+            if self.integral > LIMIT_I: self.integral = LIMIT_I
+            if self.integral < -LIMIT_I: self.integral = -LIMIT_I
+
             derivative = (error - self.prev_error) / dt
             pid_output = (KP * error) + (KI * self.integral) + (KD * derivative)
             
@@ -334,7 +349,15 @@ class Joint2Driver(Node):
             # แปลง PID Output เป็นเป้าหมายความถี่ (Target Hz)
             speed_mag = abs(pid_output)
             mapped_hz = MIN_HZ + (speed_mag * SPEED_MULTIPLIER) 
-            if mapped_hz > MAX_HZ: mapped_hz = MAX_HZ
+            
+            # 🏎️ 🛡️ DYNAMIC BRAKE (ระบบเบรก ABS):
+            # ถ้าใกล้ถึงเป้าหมาย (เหลือน้อยกว่า 3 องศา) บังคับลดความเร็วสูงสุดลงตามระยะทาง!
+            if abs(error) < 3.0:
+                dynamic_max_hz = MAX_HZ * (abs(error) / 3.0) 
+                if dynamic_max_hz < MIN_HZ * 1.5: dynamic_max_hz = MIN_HZ * 1.5
+                if mapped_hz > dynamic_max_hz: mapped_hz = dynamic_max_hz
+            elif mapped_hz > MAX_HZ: 
+                mapped_hz = MAX_HZ
             
             self.target_hz = mapped_hz
 
@@ -445,21 +468,35 @@ class Joint2Driver(Node):
         # คำนวณ: Target (180) = Raw - Offset
         # ดังนั้น: Offset = Raw - 180
         # 5. Set 180 Degrees
-        val = self.read_as5600()
+        # ==============================================================
+        # 🟢 โค้ดใหม่: 5. Set 180 Degrees (แบบปลอดภัย ไม่แครชแน่นอน)
+        # ==============================================================
+        val = None
+        for _ in range(10):  # วนลูปพยายามอ่านค่า 10 ครั้ง 
+            val = self.read_as5600()
+            if val is not None:
+                break        # ถ้าได้ค่าแล้ว ให้ทะลุลูปออกมาเลย
+            time.sleep(0.05) # ถ้ายึกยัก ให้รอ 50ms แล้วอ่านใหม่
         
-        # 🔓 ปลดล็อกเงื่อนไข: บังคับให้ Homing สำเร็จไปเลย!
-        raw_at_home = self.latest_raw_sensor_val  # e.g. reads 2951
-        self.zero_offset = val - 180.0
-        self.is_homed = True
-        self.current_target = 180.0
+        raw_at_home = self.latest_raw_sensor_val  
         
         if val is not None: 
+            # 🟢 ถ้าอ่านได้เป็นตัวเลข ค่อยเอาไปคำนวณ!
+            self.zero_offset = val - 180.0
+            self.is_homed = True
+            self.current_target = 180.0
+            
             current_check = self.get_calibrated_angle()
             self.get_logger().info(f"✅ Homing Done. Sensor reads: {current_check:.2f}° (Should be approx 180°)")
         else:
-            self.get_logger().warn("⚠️ Could not read sensor at home — offset defaulting to 0!")
+            # 🔴 ถ้าพยายาม 10 รอบแล้วยังเป็น None เซ็นเซอร์อาจจะหลุด
+            # ให้ตั้งค่าเซฟตี้ไปก่อน โปรแกรมจะได้ไม่พัง Error บรรทัดแดงๆ
+            self.get_logger().error("❌ อ่านเซ็นเซอร์ไม่ได้ตอนจบ Homing! บังคับตั้งค่าชั่วคราวเพื่อกันระบบพัง")
+            self.zero_offset = 0.0
+            self.is_homed = False 
+            self.current_target = None
             
-        self.get_logger().info("🚀 Holding Position at 180.0°")
+        self.get_logger().info("🚀 Holding Position at Limit...")
         self.last_sensor_rx_time = time.time()  # ✅ reset watchdog after homing
         self.last_known_good_raw = self.latest_raw_sensor_val  # ✅ sync reference point
 
