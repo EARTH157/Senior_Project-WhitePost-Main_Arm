@@ -71,15 +71,17 @@ class Main_Processor(Node):
         
         # --- ตัวแปรสำหรับระบบ Camera Tracking ---
         self.is_tracking_mode = False  
-        self.tracking_kp_xy = 0.01 
-        self.tracking_kp_depth = 0.01 
-        self.tracking_max_step = 10.0  
+        self.tracking_kp_xy = 0.06
+        self.tracking_kp_depth = 0.04
+        self.tracking_max_step = 15.0  
         self.RADIUS_DEAD_ZONE = 10.0  
         self.lock_start_time = 0.0  
+        self.wait_calib_start_time = 0.0
+        self.settle_start_time = 0.0
         
         self.preset_x = 650.0
-        self.preset_y = 400.0  
-        self.preset_z = 650.0  
+        self.preset_y = 300.0  
+        self.preset_z = 550.0  
         
         self.preset_back_x = -500.0 
         self.preset_back_y = -500.0  
@@ -681,13 +683,12 @@ class Main_Processor(Node):
                 self.execute_go_home()
     
     # =================================================================
-    # 🔄 CALIBRATION ROUTINE (เพิ่มเงื่อนไข J2: 70-120 องศา และแก้ปัญหา Hardware ACK)
+    # 🔄 CALIBRATION ROUTINE
     # =================================================================
     def calibration_routine(self):
         if self.system_ready: return
         
         if self.cal_state == 'WAIT_FOR_COMMAND':
-            # แต่ถ้า Joint ทั้ง 3 ตัวจำค่าเดิมได้และส่ง True มาครบแล้ว ให้ถือว่าพร้อมทำงานเลย
             if self.cal_status[1] == True and self.cal_status[2] == True and self.cal_status[3] == True:
                 self.cal_state = 'READY'
             return
@@ -695,17 +696,14 @@ class Main_Processor(Node):
         if self.cal_state == 'INIT_WAIT':
             if None not in self.cal_status.values():
                 j2_angle = self.current_angles[2]
-                
-                # 🔥 เงื่อนไขใหม่: ถ้า J2 อยู่ในช่วง 70 - 120 องศา ให้ลำดับเป็น J3 -> J1 -> J2
                 if j2_angle is not None and 70.0 <= j2_angle <= 120.0:
-                    self.get_logger().info(f">>> Joint 2 อยู่ที่ {j2_angle:.1f}° (ช่วง 70-120): เริ่มลำดับ Calibrate J3 -> J1 -> J2")
+                    self.get_logger().info(f">>> Joint 2 อยู่ที่ {j2_angle:.1f}° (ช่วง 70-120): ลำดับ J3 -> J1 -> J2")
                     self.cal_state = 'CHECK_J3'
                     self.next_state_after_j3 = 'CHECK_J1'
                     self.next_state_after_j1 = 'CHECK_J2'
                     self.next_state_after_j2 = 'READY'
                 else:
-                    # นอกระยะ 70-120 องศา ให้ลำดับเป็น J2 -> J1 -> J3 (เพื่อความปลอดภัยในการพับ)
-                    self.get_logger().info(f">>> Joint 2 อยู่ที่ {j2_angle if j2_angle else 'Unknown'}°: เริ่มลำดับ Calibrate J2 -> J1 -> J3")
+                    self.get_logger().info(f">>> Joint 2 อยู่ที่ {j2_angle if j2_angle else 'Unknown'}°: ลำดับ J2 -> J1 -> J3")
                     self.cal_state = 'CHECK_J2'
                     self.next_state_after_j2 = 'CHECK_J1'
                     self.next_state_after_j1 = 'CHECK_J3'
@@ -719,14 +717,23 @@ class Main_Processor(Node):
                 self.publisher3_calibrate_.publish(Bool(data=True))
                 self.force_cal[3] = False
                 self.cal_state = 'WAIT_ACK_J3'
-                
+                self.wait_calib_start_time = time.time()
+
         elif self.cal_state == 'WAIT_ACK_J3':
-            if self.cal_status[3] == False: # รอจนกว่า Node จะเปลี่ยนสถานะเป็น False (เริ่ม Homing)
+            if self.cal_status[3] == False:
                 self.cal_state = 'WAIT_CALIB_J3'
+                self.wait_calib_start_time = time.time()
+            elif time.time() - self.wait_calib_start_time > 5.0:
+                self.get_logger().warn("⚠️ J3 ACK timeout — forcing WAIT_CALIB_J3")
+                self.cal_state = 'WAIT_CALIB_J3'
+                self.wait_calib_start_time = time.time()
 
         elif self.cal_state == 'WAIT_CALIB_J3':
             if self.cal_status[3] == True:
                 self.get_logger().info("✅ Joint 3 Calibrate เสร็จสิ้น!")
+                self.cal_state = self.next_state_after_j3
+            elif time.time() - self.wait_calib_start_time > 30.0:
+                self.get_logger().warn("⚠️ J3 homing timeout — forcing proceed")
                 self.cal_state = self.next_state_after_j3
 
         # ------------------- JOINT 2 -------------------
@@ -738,20 +745,37 @@ class Main_Processor(Node):
                 self.publisher2_calibrate_.publish(Bool(data=True))
                 self.force_cal[2] = False
                 self.cal_state = 'WAIT_ACK_J2'
-                
+                self.wait_calib_start_time = time.time()
+
         elif self.cal_state == 'WAIT_ACK_J2':
             if self.cal_status[2] == False:
                 self.cal_state = 'WAIT_CALIB_J2'
+                self.wait_calib_start_time = time.time()
+            elif time.time() - self.wait_calib_start_time > 5.0:
+                self.get_logger().warn("⚠️ J2 ACK timeout — forcing WAIT_CALIB_J2")
+                self.cal_state = 'WAIT_CALIB_J2'
+                self.wait_calib_start_time = time.time()
 
         elif self.cal_state == 'WAIT_CALIB_J2':
             if self.cal_status[2] == True:
+                self.get_logger().info("✅ Joint 2 Homing เสร็จ! สั่งไป 90°")
+                self.publisher2_.publish(Float32(data=90.0))
+                self.cal_state = 'WAIT_ANGLE_J2'
+            elif time.time() - self.wait_calib_start_time > 30.0:
+                self.get_logger().warn("⚠️ J2 homing timeout — forcing 90°")
                 self.publisher2_.publish(Float32(data=90.0))
                 self.cal_state = 'WAIT_ANGLE_J2'
 
         elif self.cal_state == 'WAIT_ANGLE_J2':
             curr = self.current_angles[2]
             if curr is not None and abs(curr - 90.0) <= 5.0:
-                self.get_logger().info("✅ Joint 2 ถึงเป้าหมาย (90°) แล้ว!")
+                self.get_logger().info("✅ Joint 2 ถึง 90° แล้ว! รอให้นิ่ง...")
+                self.settle_start_time = time.time()
+                self.cal_state = 'SETTLE_J2'
+
+        elif self.cal_state == 'SETTLE_J2':
+            if time.time() - self.settle_start_time >= 1.5:
+                self.get_logger().info("✅ J2 นิ่งแล้ว เริ่ม J1")
                 self.cal_state = self.next_state_after_j2
 
         # ------------------- JOINT 1 -------------------
@@ -763,26 +787,49 @@ class Main_Processor(Node):
                 self.publisher1_calibrate_.publish(Bool(data=True))
                 self.force_cal[1] = False
                 self.cal_state = 'WAIT_ACK_J1'
-                
+                self.wait_calib_start_time = time.time()
+
         elif self.cal_state == 'WAIT_ACK_J1':
             if self.cal_status[1] == False:
                 self.cal_state = 'WAIT_CALIB_J1'
+                self.wait_calib_start_time = time.time()
+            elif time.time() - self.wait_calib_start_time > 5.0:
+                self.get_logger().warn("⚠️ J1 ACK timeout — forcing WAIT_CALIB_J1")
+                self.cal_state = 'WAIT_CALIB_J1'
+                self.wait_calib_start_time = time.time()
 
         elif self.cal_state == 'WAIT_CALIB_J1':
             if self.cal_status[1] == True:
+                self.get_logger().info("✅ Joint 1 Homing เสร็จ! สั่งไป 90°")
+                self.publisher1_.publish(Float32(data=90.0))
+                self.cal_state = 'WAIT_ANGLE_J1'
+            elif time.time() - self.wait_calib_start_time > 30.0:
+                self.get_logger().warn("⚠️ J1 homing timeout — forcing 90°")
                 self.publisher1_.publish(Float32(data=90.0))
                 self.cal_state = 'WAIT_ANGLE_J1'
 
         elif self.cal_state == 'WAIT_ANGLE_J1':
             curr = self.current_angles[1]
             if curr is not None and abs(curr - 90.0) <= 5.0:
-                self.get_logger().info("✅ Joint 1 ถึงเป้าหมาย (90°) แล้ว!")
+                self.get_logger().info("✅ Joint 1 ถึง 90° แล้ว! รอให้นิ่ง...")
+                self.settle_start_time = time.time()
+                self.cal_state = 'SETTLE_J1'
+
+        elif self.cal_state == 'SETTLE_J1':
+            if time.time() - self.settle_start_time >= 1.5:
+                self.get_logger().info("✅ J1 นิ่งแล้ว เริ่ม J3")
                 self.cal_state = self.next_state_after_j1
 
         # ------------------- READY -------------------
         elif self.cal_state == 'READY':
             self.get_logger().info("===============================")
             self.get_logger().info("🚀 Calibrate สำเร็จ! กำลังเซตท่าเริ่มต้น...")
+
+            # ✅ คืน Joint 4 กลับ 90° หลัง Calibrate เสร็จ
+            safe_servo = Float32MultiArray()
+            safe_servo.data = [0.0, 0.0, 90.0, 0.0, 90.0]
+            self.publisher_servo_.publish(safe_servo)
+            self.get_logger().info("🦾 Joint 4 → 90° (Returning to normal)")
 
             init_joints = [90.0, 180.0, 10.0, 90.0, 90.0]
             init_xyz = self.calculate_forward_kinematics(init_joints[0], init_joints[1], init_joints[2])
@@ -809,8 +856,6 @@ class Main_Processor(Node):
             self.get_logger().info("===============================")
 
             self.system_ready = True
-            # 🔥 ลบบรรทัด self.cal_timer.cancel() ออก เพื่อให้ State Machine 
-            # สามารถวนกลับไปรับคำสั่ง "calibrate" ใหม่อีกรอบได้ในขณะที่หุ่นกำลังรันอยู่
 
     def listener_callback(self, msg):
         if not self.system_ready or self.homing_phase != 0: return

@@ -2,6 +2,7 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32, Bool
+from std_msgs.msg import Bool as BoolMsg
 import RPi.GPIO as GPIO
 import time
 import sys
@@ -19,7 +20,7 @@ PIN_LIMIT = 23
 ENA_ACTIVE_HIGH = False 
 
 # PID Parameters
-KP = 1.5
+KP = 0.9
 KI = 0.8
 KD = 0.01    
 
@@ -185,17 +186,21 @@ class Joint1Driver(Node):
             threading.Thread(target=self.sequence_homing_wrapper, daemon=True).start()
 
     def sequence_homing_wrapper(self):
-        self.is_homing_active = True  # 🟢 เปิดโหมด Homing (ล็อกไม่ให้ Auto-Resume ทำงานแทรก)
+        self.is_homing_active = True   # ✅ ป้องกัน sensor timeout ระหว่าง homing
         self.is_homed = False
-        
-        # บังคับหยุด PID/Motor Worker ชั่วคราวไม่ให้กวนการขยับ
         self.target_hz = 0.0
         self.current_hz = 0.0
+        
+        # ✅ Publish False ทันที ให้ main_processor ผ่าน WAIT_ACK ได้เร็ว
+        cal_msg = Bool()
+        cal_msg.data = False
+        self.calibration_pub.publish(cal_msg)
+        self.get_logger().info("📢 Published calibrated=False immediately")
         
         self.enable_motor(True)
         self.perform_homing_sequence()
         
-        self.is_homing_active = False # 🟢 ปิดโหมด Homing
+        self.is_homing_active = False  # ✅ เปิด watchdog กลับมาหลัง homing เสร็จ
 
     def target_callback(self, msg: Float32):
         if not self.is_homed:
@@ -252,10 +257,10 @@ class Joint1Driver(Node):
     # ---------------------------------------------------------
     def pid_worker(self):
         # --- ปรับจูนใหม่สำหรับ TB6600 (Microstep 1/8 หรือ 1600 Pulse/Rev) ---
-        MAX_HZ = 6000.0       # ⬆️ เพิ่มความเร็วสูงสุด (2000 Hz = วิ่งประมาณ 1.2 รอบ/วินาที)
+        MAX_HZ = 5000.0       # ⬆️ เพิ่มความเร็วสูงสุด (2000 Hz = วิ่งประมาณ 1.2 รอบ/วินาที)
         MIN_HZ = 50.0        # ⬆️ เพิ่มความเร็วต่ำสุด เลี้ยงรอบไว้ไม่ให้หยุดกระชาก
         ACCEL_RATE = 400.0    # ⬆️ เพิ่มอัตราเร่ง ให้ขยับเข้าหาเป้าหมายสมูทๆ
-        SPEED_MULTIPLIER = 80.0 # ⬆️ เพิ่มตัวคูณให้ PID ตอบสนองไวขึ้น
+        SPEED_MULTIPLIER = 100.0 # ⬆️ เพิ่มตัวคูณให้ PID ตอบสนองไวขึ้น
         
         while self.running and rclpy.ok():
             time.sleep(0.01) # รันที่ประมาณ 50Hz (ทุกๆ 20ms)
@@ -350,8 +355,8 @@ class Joint1Driver(Node):
             # ⚙️ โค้ดคำนวณ Calibration ของคุณใส่ไว้ตรงนี้เหมือนเดิม!
             # (ด้านล่างนี้เป็นสูตรเดิมของ Joint 1)
             # ==========================================
-            RAW_AT_0_DEG  = 518.0   
-            RAW_AT_90_DEG = 1265.0  
+            RAW_AT_0_DEG  = 720.0   
+            RAW_AT_90_DEG = 1750.0
                 
             slope = (90.0 - 0.0) / (RAW_AT_90_DEG - RAW_AT_0_DEG)
             real_angle = slope * (current_raw - RAW_AT_0_DEG) + 0.0
@@ -418,6 +423,11 @@ class Joint1Driver(Node):
         self.get_logger().info("🚀 Holding Position at 0.0°")
         self.last_sensor_rx_time = time.time()  # ✅ reset watchdog after homing
         self.last_known_good_raw = self.latest_raw_sensor_val  # ✅ sync reference point
+        
+        cal_msg = BoolMsg()
+        cal_msg.data = True
+        self.calibration_pub.publish(cal_msg)
+        self.get_logger().info("📢 Published calibrated=True immediately")
 
     def enable_motor(self, enable):
         GPIO.output(PIN_ENA, GPIO.HIGH if enable == ENA_ACTIVE_HIGH else GPIO.LOW)

@@ -14,7 +14,7 @@ class ESP32BridgeNode(Node):
         super().__init__('esp32_bridge_node')
         
         # --- ตั้งค่าช่องต่างๆ ---
-        self.MUX_CH_J1 = 7   
+        self.MUX_CH_J1 = 6  
         self.MUX_CH_J2 = 1   
         self.MUX_CH_J3 = 0   
         self.MUX_CH_SERVO = 2     
