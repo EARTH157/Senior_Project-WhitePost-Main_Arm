@@ -20,6 +20,8 @@ processor_unit/main_processor.py
 processor_unit/steam_opencv.py
 processor_unit/uart_command_and_status_to_pi5.py
 processor_unit/uart_zero_two_w.py
+processor_unit/ws_viewer_back.py
+processor_unit/ws_viewer_front.py
 processor_unit/yolov8n.pt
 processor_unit/elevator_btn_4_best_ncnn_model/metadata.yaml
 processor_unit/elevator_btn_4_best_ncnn_model/model.ncnn.bin

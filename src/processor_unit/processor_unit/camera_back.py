@@ -118,11 +118,8 @@ class AprilTagBackNode(Node):
         elif command in ["none", "off", "stop", "front"]:
             if self.is_active:
                 self.is_active = False
-                if not self.simulation_mode and hasattr(self, 'cap'):
-                    self.cap.release()
-                    self.camera_ready = False
                 cv2.destroyAllWindows()
-                self.get_logger().info("💤 [BACK] Standby")
+                self.get_logger().info("💤 [BACK] Processing Standby (กล้องยัง stream อยู่)")
 
     # --------------------------------------------------
     # 🏢 Callback สำหรับคำสั่งตรวจเช็คชั้นลิฟต์
@@ -281,8 +278,6 @@ class AprilTagBackNode(Node):
             self.get_logger().error(f"Sim Image Error: {e}")
 
     def timer_callback(self):
-        if not self.is_active: return
-        
         if not self.camera_ready:
             self.cap = cv2.VideoCapture(self.camera_index, cv2.CAP_V4L2)
             if self.cap.isOpened():
@@ -295,7 +290,14 @@ class AprilTagBackNode(Node):
 
         ret, frame = self.cap.read()
         if ret:
-            self.process_frame(frame)
+            # 📡 Encode JPEG สำหรับ stream เสมอ (ไม่ต้องรอ is_active)
+            _, jpeg_buf = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 50])
+            with self.stream_lock:
+                self.latest_frame_bytes = jpeg_buf.tobytes()
+            
+            # ประมวลผล YOLO/AprilTag/ประตู เฉพาะตอน active เท่านั้น
+            if self.is_active:
+                self.process_frame(frame)
 
     # --------------------------------------------------
     # 📡 TCP Stream Server — ส่ง JPEG frame ให้ client
@@ -326,14 +328,24 @@ class AprilTagBackNode(Node):
     def _handle_stream_client(self, client_sock, addr):
         try:
             client_sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            no_frame_count = 0
             while self.stream_running:
                 with self.stream_lock:
                     frame_data = self.latest_frame_bytes
                 
                 if frame_data is None:
-                    time.sleep(0.03)
+                    # ส่ง keep-alive (length=0) ทุก ~1 วินาที เพื่อไม่ให้ client timeout
+                    no_frame_count += 1
+                    if no_frame_count >= 30:
+                        no_frame_count = 0
+                        try:
+                            client_sock.sendall(struct.pack('>I', 0))
+                        except (BrokenPipeError, ConnectionResetError):
+                            break
+                    time.sleep(0.033)
                     continue
                 
+                no_frame_count = 0
                 try:
                     header = struct.pack('>I', len(frame_data))
                     client_sock.sendall(header + frame_data)

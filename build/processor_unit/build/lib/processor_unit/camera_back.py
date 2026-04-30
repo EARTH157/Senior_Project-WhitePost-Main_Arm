@@ -5,6 +5,8 @@ import numpy as np
 import time
 import subprocess
 import os
+import socket
+import struct
 import threading
 from std_msgs.msg import Bool, String
 from sensor_msgs.msg import Image       
@@ -68,6 +70,17 @@ class AprilTagBackNode(Node):
         self.last_floor_check_time = 0.0
         self.pub_floor_result = self.create_publisher(String, '/floor_check/result', 10)
         self.sub_floor_command = self.create_subscription(String, '/floor_check/command', self.cb_floor_check_command, 10)
+        
+        # ==========================================
+        # 📡 TCP Stream Server สำหรับส่งภาพแบบ Real-time
+        # ==========================================
+        self.stream_port = 9101
+        self.latest_frame_bytes = None
+        self.stream_lock = threading.Lock()
+        self.stream_running = True
+        self.stream_thread = threading.Thread(target=self._run_stream_server, daemon=True)
+        self.stream_thread.start()
+        self.get_logger().info(f"📡 [BACK] Stream Server เริ่มที่ port {self.stream_port}")
 
         # ==========================================
         # 🗣️ ตั้งค่าระบบเสียงขอความช่วยเหลือ
@@ -105,11 +118,8 @@ class AprilTagBackNode(Node):
         elif command in ["none", "off", "stop", "front"]:
             if self.is_active:
                 self.is_active = False
-                if not self.simulation_mode and hasattr(self, 'cap'):
-                    self.cap.release()
-                    self.camera_ready = False
                 cv2.destroyAllWindows()
-                self.get_logger().info("💤 [BACK] Standby")
+                self.get_logger().info("💤 [BACK] Processing Standby (กล้องยัง stream อยู่)")
 
     # --------------------------------------------------
     # 🏢 Callback สำหรับคำสั่งตรวจเช็คชั้นลิฟต์
@@ -251,6 +261,11 @@ class AprilTagBackNode(Node):
         img_msg = self.bridge.cv2_to_imgmsg(frame, "bgr8")
         self.pub_image.publish(img_msg)
         
+        # 📡 Encode JPEG สำหรับ stream
+        _, jpeg_buf = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 50])
+        with self.stream_lock:
+            self.latest_frame_bytes = jpeg_buf.tobytes()
+        
         cv2.imshow("AprilTag + YOLO BACK", frame)
         cv2.waitKey(1)
 
@@ -263,8 +278,6 @@ class AprilTagBackNode(Node):
             self.get_logger().error(f"Sim Image Error: {e}")
 
     def timer_callback(self):
-        if not self.is_active: return
-        
         if not self.camera_ready:
             self.cap = cv2.VideoCapture(self.camera_index, cv2.CAP_V4L2)
             if self.cap.isOpened():
@@ -277,9 +290,77 @@ class AprilTagBackNode(Node):
 
         ret, frame = self.cap.read()
         if ret:
-            self.process_frame(frame)
+            # 📡 Encode JPEG สำหรับ stream เสมอ (ไม่ต้องรอ is_active)
+            _, jpeg_buf = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 50])
+            with self.stream_lock:
+                self.latest_frame_bytes = jpeg_buf.tobytes()
+            
+            # ประมวลผล YOLO/AprilTag/ประตู เฉพาะตอน active เท่านั้น
+            if self.is_active:
+                self.process_frame(frame)
+
+    # --------------------------------------------------
+    # 📡 TCP Stream Server — ส่ง JPEG frame ให้ client
+    # --------------------------------------------------
+    def _run_stream_server(self):
+        server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server_sock.settimeout(1.0)
+        server_sock.bind(('0.0.0.0', self.stream_port))
+        server_sock.listen(2)
+        
+        while self.stream_running:
+            try:
+                client_sock, addr = server_sock.accept()
+                self.get_logger().info(f"📡 [BACK] Client เชื่อมต่อ: {addr}")
+                client_thread = threading.Thread(
+                    target=self._handle_stream_client, args=(client_sock, addr), daemon=True
+                )
+                client_thread.start()
+            except socket.timeout:
+                continue
+            except Exception as e:
+                if self.stream_running:
+                    self.get_logger().error(f"📡 [BACK] Stream error: {e}")
+        
+        server_sock.close()
+
+    def _handle_stream_client(self, client_sock, addr):
+        try:
+            client_sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            no_frame_count = 0
+            while self.stream_running:
+                with self.stream_lock:
+                    frame_data = self.latest_frame_bytes
+                
+                if frame_data is None:
+                    # ส่ง keep-alive (length=0) ทุก ~1 วินาที เพื่อไม่ให้ client timeout
+                    no_frame_count += 1
+                    if no_frame_count >= 30:
+                        no_frame_count = 0
+                        try:
+                            client_sock.sendall(struct.pack('>I', 0))
+                        except (BrokenPipeError, ConnectionResetError):
+                            break
+                    time.sleep(0.033)
+                    continue
+                
+                no_frame_count = 0
+                try:
+                    header = struct.pack('>I', len(frame_data))
+                    client_sock.sendall(header + frame_data)
+                except (BrokenPipeError, ConnectionResetError):
+                    break
+                
+                time.sleep(0.033)  # ~30 FPS
+        except Exception as e:
+            self.get_logger().warn(f"📡 [BACK] Client {addr} หลุด: {e}")
+        finally:
+            client_sock.close()
+            self.get_logger().info(f"📡 [BACK] Client {addr} ตัดการเชื่อมต่อ")
 
     def destroy_node(self):
+        self.stream_running = False
         if not self.simulation_mode and hasattr(self, 'cap'):
             self.cap.release()
         super().destroy_node()
