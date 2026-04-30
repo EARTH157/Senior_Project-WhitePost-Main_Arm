@@ -5,6 +5,8 @@ import numpy as np
 import time
 import subprocess
 import os
+import socket
+import struct
 import threading
 from std_msgs.msg import Bool, String
 from sensor_msgs.msg import Image       
@@ -25,7 +27,7 @@ class AprilTagFrontNode(Node):
         # ==========================================
         # 🔘 สวิตช์เปิด-ปิด ระบบ YOLO และเสียง
         # ==========================================
-        self.enable_yolo_audio = False  # ค่าเริ่มต้นคือ "เปิด" ทำงาน
+        self.enable_yolo_audio = False  # ค่าเริ่มต้นคือ "ปิด" ทำงาน
         self.sub_toggle_yolo = self.create_subscription(Bool, '/toggle_yolo_audio', self.cb_toggle_yolo, 10)
 
         # ==========================================
@@ -56,6 +58,28 @@ class AprilTagFrontNode(Node):
         self.bridge = CvBridge()
         self.is_active = False
         self.sub_active = self.create_subscription(String, '/active_camera', self.cb_active, 10)
+        
+        # ==========================================
+        # 🏢 ระบบตรวจเช็คชั้นลิฟต์ด้วย AprilTag
+        # ==========================================
+        self.floor_check_mode = False
+        self.floor_check_target_tag = None  # AprilTag ID ที่คาดหวัง (เช่น 10 หรือ 20)
+        self.floor_tag_map = {10: 1, 20: 3}  # AprilTag ID → ชั้น
+        self.floor_check_cooldown = 2.0  # หน่วงส่ง wrong_floor ไม่ให้ spam (วินาที)
+        self.last_floor_check_time = 0.0
+        self.pub_floor_result = self.create_publisher(String, '/floor_check/result', 10)
+        self.sub_floor_command = self.create_subscription(String, '/floor_check/command', self.cb_floor_check_command, 10)
+        
+        # ==========================================
+        # 📡 TCP Stream Server สำหรับส่งภาพแบบ Real-time
+        # ==========================================
+        self.stream_port = 9100
+        self.latest_frame_bytes = None
+        self.stream_lock = threading.Lock()
+        self.stream_running = True
+        self.stream_thread = threading.Thread(target=self._run_stream_server, daemon=True)
+        self.stream_thread.start()
+        self.get_logger().info(f"📡 [FRONT] Stream Server เริ่มที่ port {self.stream_port}")
         
         # ==========================================
         # 🗣️ ตั้งค่าระบบเสียงขอความช่วยเหลือ
@@ -95,6 +119,30 @@ class AprilTagFrontNode(Node):
                     self.camera_ready = False
                 cv2.destroyAllWindows()
                 self.get_logger().info("💤 [FRONT] Standby")
+
+    # --------------------------------------------------
+    # 🏢 Callback สำหรับคำสั่งตรวจเช็คชั้นลิฟต์
+    # --------------------------------------------------
+    def cb_floor_check_command(self, msg):
+        command = msg.data.strip().lower()
+        
+        if command.startswith('front_check_floor:'):
+            try:
+                tag_id = int(command.split(':')[1])
+            except (ValueError, IndexError):
+                self.get_logger().error(f"❌ คำสั่งไม่ถูกต้อง: {msg.data}")
+                return
+            
+            self.floor_check_target_tag = tag_id
+            self.floor_check_mode = True
+            self.last_floor_check_time = 0.0
+            self.is_active = True
+            self.get_logger().info(f"🏢 [FRONT] เปิดโหมดตรวจเช็คชั้น — รอ AprilTag #{tag_id}")
+            
+        elif command == 'stop_check_floor':
+            self.floor_check_mode = False
+            self.floor_check_target_tag = None
+            self.get_logger().info("🏢 [FRONT] ปิดโหมดตรวจเช็คชั้น")
                 
     def request_elevator_help(self):
         audio_thread = threading.Thread(target=self.play_audio_final_boss, args=(self.audio_file_help,))
@@ -151,6 +199,42 @@ class AprilTagFrontNode(Node):
         if ids is not None:
             cv2.aruco.drawDetectedMarkers(frame, corners, ids)
             
+            # --------------------------------------------------
+            # 🏢 ตรวจเช็คชั้นลิฟต์ (ถ้าเปิดโหมดอยู่)
+            # --------------------------------------------------
+            if self.floor_check_mode:
+                for i, tag_id_arr in enumerate(ids):
+                    detected_id = int(tag_id_arr[0])
+                    
+                    if detected_id in self.floor_tag_map:
+                        detected_floor = self.floor_tag_map[detected_id]
+                        
+                        if detected_id == self.floor_check_target_tag:
+                            # ✅ เจอชั้นที่ถูกต้อง!
+                            result_msg = String()
+                            result_msg.data = f"floor:{detected_floor}"
+                            self.pub_floor_result.publish(result_msg)
+                            self.get_logger().info(f"✅ [FRONT] เจอ AprilTag #{detected_id} → ชั้น {detected_floor} (ถูกต้อง!) — กล้องหน้า Standby")
+                            
+                            self.floor_check_mode = False
+                            self.floor_check_target_tag = None
+                            self.is_active = False
+                            if not self.simulation_mode and hasattr(self, 'cap'):
+                                self.cap.release()
+                                self.camera_ready = False
+                            cv2.destroyAllWindows()
+                            cv2.waitKey(1)
+                            return
+                        else:
+                            # ⚠️ เจอ tag แต่ผิดชั้น — ส่ง wrong_floor แล้วรอต่อ
+                            current_time = time.time()
+                            if (current_time - self.last_floor_check_time) >= self.floor_check_cooldown:
+                                self.last_floor_check_time = current_time
+                                result_msg = String()
+                                result_msg.data = f"wrong_floor:{detected_floor}"
+                                self.pub_floor_result.publish(result_msg)
+                                self.get_logger().warn(f"⚠️ [FRONT] เจอ AprilTag #{detected_id} → ชั้น {detected_floor} (ผิดชั้น! ต้องการ Tag #{self.floor_check_target_tag}) — รอต่อ...")
+            
             if len(ids) >= 2:
                 c1 = np.mean(corners[0][0], axis=0)
                 c2 = np.mean(corners[1][0], axis=0)
@@ -173,6 +257,11 @@ class AprilTagFrontNode(Node):
         
         img_msg = self.bridge.cv2_to_imgmsg(frame, "bgr8")
         self.pub_image.publish(img_msg)
+        
+        # 📡 Encode JPEG สำหรับ stream
+        _, jpeg_buf = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 50])
+        with self.stream_lock:
+            self.latest_frame_bytes = jpeg_buf.tobytes()
         
         cv2.imshow("AprilTag FRONT Test", frame)
         cv2.waitKey(1)
@@ -202,7 +291,58 @@ class AprilTagFrontNode(Node):
         if ret:
             self.process_frame(frame)
 
+    # --------------------------------------------------
+    # 📡 TCP Stream Server — ส่ง JPEG frame ให้ client
+    # --------------------------------------------------
+    def _run_stream_server(self):
+        server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server_sock.settimeout(1.0)
+        server_sock.bind(('0.0.0.0', self.stream_port))
+        server_sock.listen(2)
+        
+        while self.stream_running:
+            try:
+                client_sock, addr = server_sock.accept()
+                self.get_logger().info(f"📡 [FRONT] Client เชื่อมต่อ: {addr}")
+                client_thread = threading.Thread(
+                    target=self._handle_stream_client, args=(client_sock, addr), daemon=True
+                )
+                client_thread.start()
+            except socket.timeout:
+                continue
+            except Exception as e:
+                if self.stream_running:
+                    self.get_logger().error(f"📡 [FRONT] Stream error: {e}")
+        
+        server_sock.close()
+
+    def _handle_stream_client(self, client_sock, addr):
+        try:
+            client_sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            while self.stream_running:
+                with self.stream_lock:
+                    frame_data = self.latest_frame_bytes
+                
+                if frame_data is None:
+                    time.sleep(0.03)
+                    continue
+                
+                try:
+                    header = struct.pack('>I', len(frame_data))
+                    client_sock.sendall(header + frame_data)
+                except (BrokenPipeError, ConnectionResetError):
+                    break
+                
+                time.sleep(0.033)  # ~30 FPS
+        except Exception as e:
+            self.get_logger().warn(f"📡 [FRONT] Client {addr} หลุด: {e}")
+        finally:
+            client_sock.close()
+            self.get_logger().info(f"📡 [FRONT] Client {addr} ตัดการเชื่อมต่อ")
+
     def destroy_node(self):
+        self.stream_running = False
         if not self.simulation_mode and hasattr(self, 'cap'):
             self.cap.release()
         super().destroy_node()

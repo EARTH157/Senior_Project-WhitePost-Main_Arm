@@ -42,6 +42,8 @@ setup(
             'esp32_bridge_node = processor_unit.esp32_bridge_node:main',
             'camera_front = processor_unit.camera_front:main',
             'camera_back = processor_unit.camera_back:main',
+            'ws_viewer_front = processor_unit.ws_viewer_front:main',
+            'ws_viewer_back = processor_unit.ws_viewer_back:main',
             'test = processor_unit.test:main',
             'force_receiver_node = processor_unit.force_receiver_node:main',
         ],

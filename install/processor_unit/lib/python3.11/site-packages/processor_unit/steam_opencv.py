@@ -21,7 +21,7 @@ os.environ["QT_QPA_PLATFORM"] = "xcb"
 
 # --- ค่าคงที่ ---
 RES_W, RES_H = 320, 240
-OFFSET_X = -25
+OFFSET_X = 0
 OFFSET_Y = 60   
 CENTER_X = (RES_W // 2) + OFFSET_X
 CENTER_Y = (RES_H // 2) + OFFSET_Y

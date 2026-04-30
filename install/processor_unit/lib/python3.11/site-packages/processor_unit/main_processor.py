@@ -79,13 +79,17 @@ class Main_Processor(Node):
         self.wait_calib_start_time = 0.0
         self.settle_start_time = 0.0
         
-        self.preset_x = 650.0
+        self.preset_x = 550.0
         self.preset_y = 300.0  
         self.preset_z = 550.0  
         
         self.preset_back_x = -500.0 
         self.preset_back_y = -500.0  
         self.preset_back_z = 750.0
+        
+        # 🟢 เพิ่มตัวแปรจัดการเฟสของ Preset
+        self.preset_phase = 0 
+        self.final_preset_joints = None
         
         self.sub_command = self.create_subscription(String, '/robot_command', self.cb_robot_command, 10)
         self.pub_command = self.create_publisher(String, '/robot_command', 10)
@@ -223,7 +227,7 @@ class Main_Processor(Node):
 
     def execute_preset(self):
         self.post_move_action = None
-        self.get_logger().info(f"🎯 [COMMAND] PRESET: กางแขนไปพิกัดเตรียมเล็งกล้อง...")
+        self.get_logger().info(f"🎯 [COMMAND] PRESET: กางแขนไปพิกัดเตรียมเล็งกล้อง (ทำงานทีละข้อต่อ)...")
         self.pub_active_cam.publish(String(data="front")) 
         self.is_tracking_mode = False
         self.post_move_action = 'TRACK'
@@ -235,19 +239,21 @@ class Main_Processor(Node):
             return
 
         self.target_pos = [self.preset_x, self.preset_y, self.preset_z]
-        self.start_pos = list(self.current_pos)
-        self.target_joints = target_jts
+        self.final_preset_joints = target_jts  # 🟢 จำพิกัดรวมไว้
+        self.preset_phase = 1                  # 🟢 เข้าสู่เฟส 1
+        self.move_mode = 'JOINT'
         self.start_joints = list(self.current_joints)
         
-        self.move_mode = 'JOINT'
+        # 📌 เฟส 1: ขยับแค่ J1 ที่เหลือค้างไว้ที่เดิม
+        self.target_joints = [
+            self.final_preset_joints[0],
+            self.current_joints[1],
+            self.current_joints[2],
+            self.current_joints[3],
+            self.current_joints[4]
+        ]
         
-        max_angle_diff = max([abs(t - c) for t, c in zip(self.target_joints, self.current_joints)])
-        duration = max_angle_diff / self.speed_joint_deg_s
-        if duration < 0.5: 
-            duration = 0.5 
-            
-        self.step_total = int(duration / self.timer_period)
-        if self.step_total == 0: self.step_total = 1
+        self.step_total = 1
         self.step_current = 0
         self.is_moving = True
         
@@ -274,7 +280,7 @@ class Main_Processor(Node):
 
     def execute_preset_back(self):
         self.post_move_action = None
-        self.get_logger().info(f"🎯 [COMMAND] PRESET BACK: กางแขนไปพิกัดเตรียมเล็งกล้อง (ด้านหลัง)...")
+        self.get_logger().info(f"🎯 [COMMAND] PRESET BACK: กางแขนเตรียมเล็ง (ทำงานทีละข้อต่อ)...")
         self.pub_active_cam.publish(String(data="back")) 
         self.is_tracking_mode = False
         self.post_move_action = 'TRACK'
@@ -286,19 +292,21 @@ class Main_Processor(Node):
             return
 
         self.target_pos = [self.preset_back_x, self.preset_back_y, self.preset_back_z]
-        self.start_pos = list(self.current_pos)
-        self.target_joints = target_jts
+        self.final_preset_joints = target_jts  
+        self.preset_phase = 1                  
+        self.move_mode = 'JOINT'
         self.start_joints = list(self.current_joints)
         
-        self.move_mode = 'JOINT'
+        # 📌 เฟส 1: ขยับแค่ J1 ที่เหลือค้างไว้ที่เดิม
+        self.target_joints = [
+            self.final_preset_joints[0],
+            self.current_joints[1],
+            self.current_joints[2],
+            self.current_joints[3],
+            self.current_joints[4]
+        ]
         
-        max_angle_diff = max([abs(t - c) for t, c in zip(self.target_joints, self.current_joints)])
-        duration = max_angle_diff / self.speed_joint_deg_s
-        if duration < 0.5: 
-            duration = 0.5 
-            
-        self.step_total = int(duration / self.timer_period)
-        if self.step_total == 0: self.step_total = 1
+        self.step_total = 1
         self.step_current = 0
         self.is_moving = True
 
@@ -339,16 +347,30 @@ class Main_Processor(Node):
             if self.current_angles[3] is not None: 
                 self.current_joints[2] = float(self.current_angles[3])
         
-        # 📌 ท่า Home สุดท้าย (J1=90, J2=180, J3=8, J4=90, J5=90)
+        # 📌 ท่า Home สุดท้าย
         home_joints = [90.0, 180.0, 8.0, 90.0, 90.0] 
 
-        home_joints = [90.0, 180.0, 8.0, 90.0, 90.0] 
+        # 🟢 โค้ดส่วนที่หายไป เอาเป้าหมายและ Phase กลับมาแล้ว!
+        if self.current_joints is None:
+            target_xyz = self.calculate_forward_kinematics(home_joints[0], home_joints[1], home_joints[2])
+            self.publish_joints(home_joints)
+            self.current_joints = home_joints
+            self.current_pos = target_xyz
+            return
+            
+        self.final_home_pos = self.calculate_forward_kinematics(home_joints[0], home_joints[1], home_joints[2])
+        self.homing_phase = 1
+        self.move_mode = 'JOINT'
+        self.start_joints = list(self.current_joints)
+        
+        # 📌 เฟส 1: J1 ค้างไว้, J2->90, J3->8, J4->90, J5->90
+        self.target_joints = [self.current_joints[0], 90.0, 8.0, 90.0, 90.0]
+
         # ==========================================
         # 🟢 โยนภาระให้ PID มอเตอร์จัดการเร่ง/เบรกเอง!
         # ==========================================
         self.step_total = 1
         self.step_current = 0
-        self.is_moving = True
         self.is_moving = True
             
     def cb_target_error(self, msg):
@@ -1042,7 +1064,70 @@ class Main_Processor(Node):
                 self.current_pos = list(self.final_home_pos) 
                 self.homing_phase = 0
                 self.is_moving = False
+
+            # ==========================================
+            # 🟢 ด่านตรวจ Phase สำหรับคำสั่ง Preset
+            # ==========================================
+            elif self.preset_phase == 1:
+                curr_j1 = self.current_angles[1]
+                if curr_j1 is None or abs(curr_j1 - self.final_preset_joints[0]) > 3.0:
+                    if self.step_current % 50 == 0:
+                        j1_str = f"{curr_j1:.1f}" if curr_j1 else "N/A"
+                        self.get_logger().info(f"⏳ รอ J1 หันหน้าเข้าหาเป้า... (ปัจจุบัน: {j1_str}°)")
+                    return 
+
+                self.get_logger().info("✅ Preset J1 เสร็จ! เริ่มเฟส 2 (ดัน J2 ไปตามพิกัดคำนวณ)")
+                self.preset_phase = 2
+                self.start_joints = list(self.current_joints)
                 
+                # 📌 เฟส 2: ขยับ J2 ไปตามพิกัดที่ IK คำนวณมาได้เลย
+                self.target_joints = [
+                    self.final_preset_joints[0],
+                    self.final_preset_joints[1], # ปล่อย J2 วิ่งเข้าเป้า
+                    self.current_joints[2],
+                    self.current_joints[3],
+                    self.current_joints[4]
+                ]
+                self.step_total = 1
+                self.step_current = 0 
+                return
+
+            elif self.preset_phase == 2:
+                curr_j2 = self.current_angles[2]
+                if curr_j2 is None or abs(curr_j2 - self.final_preset_joints[1]) > 3.0:
+                    if self.step_current % 50 == 0:
+                        j2_str = f"{curr_j2:.1f}" if curr_j2 else "N/A"
+                        self.get_logger().info(f"⏳ รอ J2 ดันเข้าเป้าหมาย... (ปัจจุบัน: {j2_str}°)")
+                    return 
+
+                self.get_logger().info("✅ Preset J2 เสร็จ! เริ่มเฟส 3 (จัด J3, J4, J5 พร้อมกัน)")
+                self.preset_phase = 3
+                self.start_joints = list(self.current_joints)
+                
+                # 📌 เฟส 3: ปล่อยแกน J3, J4, J5 ที่เหลือให้เข้าเป้าพร้อมกัน
+                self.target_joints = self.final_preset_joints
+                self.step_total = 1
+                self.step_current = 0 
+                return
+
+            elif self.preset_phase == 3:
+                curr_j3 = self.current_angles[3]
+                if curr_j3 is None or abs(curr_j3 - self.final_preset_joints[2]) > 3.0:
+                    if self.step_current % 50 == 0:
+                        j3_str = f"{curr_j3:.1f}" if curr_j3 else "N/A"
+                        self.get_logger().info(f"⏳ รอ J3 ยื่นเข้าเป้าหมาย... (ปัจจุบัน: {j3_str}°)")
+                    return 
+
+                self.get_logger().info("✅ ถึงจุด Preset สมบูรณ์! เตรียมเปิดกล้องและเริ่ม Track")
+                self.preset_phase = 0
+                self.is_moving = False
+                self.current_pos = list(self.target_pos)
+                
+                if hasattr(self, 'post_move_action') and self.post_move_action == 'TRACK':
+                    self.post_move_action = None
+                    self.pub_command.publish(String(data="track"))
+
+            # ==========================================                
             else:
                 if self.target_pos is not None:
                     self.current_pos = list(self.target_pos)

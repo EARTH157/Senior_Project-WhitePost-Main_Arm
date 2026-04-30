@@ -315,3 +315,8 @@ screen /dev/ttyUSB0 115200
 source venv/bin/activate
 python step1_rrtstar_drive_650610830.py --tracker stanley --rejoin-dist 0.25 --lookahead 0.22 --vmax 0.12 --path-mode mesh3d --path-width-m 0.02 --path-thickness 0.002 --path-z 0.00005 --path-color 0,0,0 --face-now --face-mode tangent --show
 ```
+
+ros2 topic pub /floor_check/command std_msgs/msg/String "data: 'front_check_floor:10'" --once
+ros2 topic pub /floor_check/command std_msgs/msg/String "data: 'back_check_floor:20'" --once
+ros2 topic echo /floor_check/result
+ros2 topic pub /floor_check/command std_msgs/msg/String "data: 'stop_check_floor'" --once
